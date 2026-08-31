@@ -1,0 +1,423 @@
+// dstoolkit Prisma schema (MySQL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum MsgRole {
+  USER
+  ASSISTANT
+}
+
+// ═══════════ 订阅等级 ═══════════
+enum Tier {
+  FREE
+  PRO
+  PLUS
+  ULTIMATE
+  TEAM
+}
+
+enum CardDuration {
+  PERMANENT
+  ANNUAL
+}
+
+enum CardStatus {
+  UNUSED
+  USED
+  REVOKED
+}
+
+enum CardSource {
+  LOCAL
+  KUFAKA
+}
+
+model User {
+  id               Int              @id @default(autoincrement())
+  username         String           @unique
+  passwordHash     String
+  role             Role             @default(USER)
+  cloudSyncEnabled Boolean          @default(false)
+
+  // 订阅等级
+  tier             Tier             @default(FREE)
+  tierActivatedAt  DateTime?
+  tierExpiresAt    DateTime?
+  isPermanentTier  Boolean          @default(false)
+
+  // AI 积分余额（摘要/整理/导出等增值操作消耗）
+  aiCredits        Int              @default(0)
+
+  // 邀请返佣
+  referralCode     String?          @unique
+  referredById     Int?             // 邀请人 userId
+  referredBy       User?             @relation("Referral", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals        User[]            @relation("Referral")
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  configs          DeepseekConfig[]
+  apiKeys          ApiKey[]
+  apiTokens        ApiToken[]
+  redeemedCards    RedeemCard[]
+  summaries        ConvSummary[]
+  knowledgeCards   KnowledgeCard[]
+  folders          Folder[]
+  tags             ConvTag[]
+  searchQueries    SearchQuery[]
+  quotaLedger      QuotaLedger[]
+  referralLinks    ReferralLink[]
+  referralRewards  ReferralReward[]
+  shares           Share[]
+  oauthCodes       OAuthCode[]
+  oauthTokens      OAuthToken[]
+
+  @@index([role])
+  @@index([tier])
+  @@index([referralCode])
+}
+
+model DeepseekConfig {
+  id             Int           @id @default(autoincrement())
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  name           String
+  deepseekUserId String
+  deepseekEmail  String?       @db.Text
+  deepseekMobile String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  conversations  Conversation[]
+  shares         Share[]
+
+  @@unique([userId, deepseekUserId])
+  @@index([userId])
+}
+
+model Conversation {
+  id             Int       @id @default(autoincrement())
+  config          DeepseekConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  configId        Int
+  deepseekConvId  String
+  title           String    @db.Text
+  insertedAt      DateTime
+  updatedAt       DateTime
+  rawMapping      Json
+  turnCount       Int       @default(0)
+  messages        Message[]
+
+  // AI 摘要与知识卡片
+  summary         ConvSummary?
+  knowledgeCards  KnowledgeCard[]
+
+  // 文件夹/标签关联
+  folderItems     ConversationTag[]
+
+  @@unique([configId, deepseekConvId])
+  @@index([configId])
+  @@index([insertedAt])
+}
+
+model Message {
+  id             Int        @id @default(autoincrement())
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId  Int
+  nodeId          String
+  parentId        String?
+  role            MsgRole
+  model           String?
+  content         String     @db.LongText
+  insertedAt      DateTime
+  turnIndex       Int?
+  versionIndex    Int?
+  subTurnIndex    Int?
+
+  @@index([conversationId])
+  @@index([role])
+  @@index([turnIndex])
+}
+
+model ApiKey {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  name      String
+  keyCipher String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model AppMarketEntry {
+  id          Int      @id @default(autoincrement())
+  name        String
+  url         String   @db.Text
+  description String?  @db.Text
+  category    String   @default("official")
+  createdAt   DateTime @default(now())
+
+  @@index([category])
+}
+
+// dstoolkit RESTful API 访问令牌（区别于 ApiKey：ApiKey 存储用户的 Deepseek 密钥）
+model ApiToken {
+  id         Int       @id @default(autoincrement())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  name       String
+  tokenHash  String    @unique
+  prefix     String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+
+  @@index([userId])
+}
+
+// ═══════════ 卡密兑换 ═══════════
+model RedeemCard {
+  id          Int           @id @default(autoincrement())
+  code        String        @unique
+  tier        Tier
+  duration    CardDuration
+  source      CardSource    @default(LOCAL)
+  status      CardStatus    @default(UNUSED)
+  usedBy      User?          @relation(fields: [usedById], references: [id], onDelete: SetNull)
+  usedById    Int?
+  redeemedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@index([tier])
+  @@index([status])
+}
+
+// ═══════════ UX-F1: AI 摘要 + 知识卡片 ═══════════
+model ConvSummary {
+  id              Int           @id @default(autoincrement())
+  conversation    Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId  Int           @unique
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  tldr            String        @db.Text   // TL;DR 一句话摘要
+  summary         String        @db.Text   // 详细摘要
+  tags            Json          // 主题标签数组 ["React","性能优化"]
+  confidence      Float         @default(0.8) // AI 置信度 0-1
+  model           String?       // 生成所用模型
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model KnowledgeCard {
+  id              Int           @id @default(autoincrement())
+  conversation    Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId  Int
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  title           String        // 卡片标题
+  content         String        @db.Text  // 卡片内容
+  category        String?       // 分类
+  tags            Json          // 标签数组
+  sourceNodeId    String?       // 来源消息 nodeId
+  createdAt       DateTime      @default(now())
+
+  @@index([userId])
+  @@index([conversationId])
+  @@index([category])
+}
+
+// ═══════════ UX-F3: 文件夹 + 标签 ═══════════
+model Folder {
+  id          Int              @id @default(autoincrement())
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  name        String
+  color       String?          // 文件夹颜色
+  icon        String?          // 图标标识
+  parentId    Int?             // 支持嵌套
+  parent      Folder?          @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Folder[]         @relation("FolderTree")
+  items       ConversationTag[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([parentId])
+}
+
+model ConvTag {
+  id          Int              @id @default(autoincrement())
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  name        String
+  color       String?
+  createdAt   DateTime         @default(now())
+  items       ConversationTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// 对话与文件夹/标签的多对多关联
+model ConversationTag {
+  id              Int           @id @default(autoincrement())
+  conversation    Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId  Int
+  folder          Folder?       @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  folderId        Int?
+  tag             ConvTag?      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId           Int?
+  createdAt       DateTime      @default(now())
+
+  @@index([conversationId])
+  @@index([folderId])
+  @@index([tagId])
+}
+
+// ═══════════ UX-F2: 搜索行为记录 ═══════════
+model SearchQuery {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  query       String   @db.Text
+  resultCount Int      @default(0)
+  clickedConvId String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ═══════════ MKT-M1/M4: AI 积分流水 ═══════════
+model QuotaLedger {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  action      String   // SUMMARY / KNOWLEDGE_CARD / AI_ORGANIZE / EXPORT / TOPUP / REFERRAL / MONTHLY_GRANT
+  delta       Int      // 正数=获得，负数=消耗
+  balance     Int      // 操作后余额快照
+  detail      String?  @db.Text  // 附加说明
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ═══════════ MKT-M5: 邀请返佣 ═══════════
+model ReferralLink {
+  id                    Int      @id @default(autoincrement())
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                Int
+  code                  String   @unique  // 短码
+  clicks                Int      @default(0)
+  signupCount           Int      @default(0)
+  totalCommissionEarned Int      @default(0)  // 单位：积分
+  createdAt             DateTime @default(now())
+
+  @@index([userId])
+}
+
+model ReferralReward {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  type        String   // SIGNUP / FIRST_SUBSCRIBE / PURCHASE
+  refereeId   Int?     // 被邀请人 userId
+  credits     Int      // 获得积分数
+  detail      String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([refereeId])
+}
+
+// ═══════════ OAuth2.0（App/插件授权码 + PKCE） ═══════════
+model OAuthClient {
+  id           Int           @id @default(autoincrement())
+  clientId     String        @unique
+  name         String
+  redirectUris Json          // ["dstoolkit://oauth-callback", ...]
+  scopes       Json          // ["read:conversations", ...]
+  isPublic     Boolean       @default(true) // true = PKCE 公共客户端，无 client_secret
+  enabled      Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  codes        OAuthCode[]
+  tokens       OAuthToken[]
+}
+
+model OAuthCode {
+  id                  Int          @id @default(autoincrement())
+  codeHash            String       @unique // SHA256(code)，明文不落库
+  clientId            Int
+  client              OAuthClient  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId              Int
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scopes              Json
+  redirectUri         String       @db.Text
+  codeChallenge       String       @db.Text // PKCE S256
+  codeChallengeMethod String       @default("S256")
+  expiresAt           DateTime // 10 分钟
+  used                Boolean      @default(false)
+  createdAt           DateTime     @default(now())
+
+  @@index([userId])
+}
+
+model OAuthToken {
+  id              Int          @id @default(autoincrement())
+  accessHash      String       @unique // SHA256(dstk_ token)，与 ApiToken.tokenHash 同值
+  refreshHash     String?      @unique // SHA256(refresh_token)
+  clientId        Int
+  client          OAuthClient  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId          Int
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiTokenId      Int // 关联 ApiToken 行，revoke 时联动删除
+  scopes          Json
+  accessExpiresAt DateTime // 30 天
+  refreshExpiresAt DateTime? // 60 天
+  createdAt       DateTime     @default(now())
+  lastUsedAt      DateTime?
+
+  @@index([userId])
+  @@index([apiTokenId])
+}
+
+// ═══════════ 公开分享 ═══════════
+model Share {
+  id              Int       @id @default(autoincrement())
+  slug            String    @unique       // 短链标识
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  config          DeepseekConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  configId        Int
+  deepseekConvId  String                   // 冗余存储便于直接定位会话
+  title           String     @db.Text
+  theme           String     @default("default")
+  passwordHash    String?    @db.Text       // 可选密码哈希
+  viewCount       Int        @default(0)
+  expiresAt       DateTime?
+  createdAt       DateTime   @default(now())
+
+  @@index([userId])
+  @@index([configId])
+  @@index([createdAt])
+}

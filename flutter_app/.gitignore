@@ -1,0 +1,21 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# 平台生成物
+ios/Pods/
+ios/.symlinks/
+android/.gradle/
+android/local.properties
+*.lock
+!pubspec.lock

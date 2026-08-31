@@ -1,0 +1,50 @@
+{
+  "name": "dstoolkit_frontend_v2",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "run-p type-check \"build-only {@}\" --",
+    "build-only": "vite build",
+    "type-check": "vue-tsc --build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "@traptitech/markdown-it-katex": "^3.6.0",
+    "axios": "^1.19.0",
+    "dayjs": "^1.11.23",
+    "echarts": "^6.1.0",
+    "element-plus": "^2.8.8",
+    "flexsearch": "^0.8.212",
+    "highlight.js": "^11.12.0",
+    "idb": "^8.0.3",
+    "katex": "^0.18.4",
+    "markdown-it": "^15.0.0",
+    "pinia": "^3.0.3",
+    "sweetalert2": "^11.14.5",
+    "vue": "^3.5.40",
+    "vue-echarts": "^8.1.0",
+    "vue-element-plus-x": "^1.4.6",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@tsconfig/node24": "^24.0.5",
+    "@types/flexsearch": "^0.7.6",
+    "@types/jsdom": "^28.0.3",
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^24.13.3",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/tsconfig": "^0.9.1",
+    "jsdom": "^29.1.1",
+    "npm-run-all2": "^9.0.2",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.0",
+    "vite-plugin-vue-devtools": "^8.2.1",
+    "vue-tsc": "^3.3.10"
+  },
+  "engines": {
+    "node": "^22.18.0 || >=24.12.0"
+  }
+}

@@ -1,0 +1,87 @@
+/**
+ * 全局样式
+ * 主题：Element Plus 原生亮/暗色（html.dark 切换，无渐变、无额外主题层）
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family:
+    'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', Arial, sans-serif;
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  height: 100%;
+}
+
+/* 页面通用容器 */
+.page {
+  padding: 20px;
+}
+
+/* 卡片内区块标题 */
+.block-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  color: var(--el-text-color-primary);
+}
+
+/* 文本溢出 */
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* SweetAlert2 与 Element 主题协调 */
+.sweet-popup {
+  border-radius: 12px;
+  font-family: inherit;
+}
+
+.sweet-title {
+  font-size: 18px;
+  color: var(--el-text-color-primary);
+}
+
+.sweet-btn-confirm,
+.sweet-btn-cancel {
+  border: none;
+  border-radius: 6px;
+  padding: 8px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.sweet-btn-confirm {
+  background-color: var(--el-color-primary);
+  color: #fff;
+}
+
+.sweet-btn-confirm:hover {
+  background-color: var(--el-color-primary-light-3);
+}
+
+.sweet-btn-cancel {
+  background-color: var(--el-fill-color);
+  color: var(--el-text-color-regular);
+}
+
+.sweet-btn-cancel:hover {
+  background-color: var(--el-fill-color-dark);
+}

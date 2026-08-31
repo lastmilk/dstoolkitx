@@ -1,0 +1,4 @@
+# DSTOOLKIT Ultimate 超能版 · 年费 卡密
+# 命名约定：<tier>-<period>.txt，每行一个卡密，兑换后自动删除该行。
+# 与 https://github.com/lastmilk/dstoolkit/tree/main/kami 对应。
+# 行首为 # 或 // 的行视为注释，不会被当作卡密。

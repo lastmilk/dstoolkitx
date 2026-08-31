@@ -1,0 +1,28 @@
+{
+  "name": "dstoolkit-admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5174",
+    "build": "vite build",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "axios": "^1.7.9",
+    "echarts": "^6.1.0",
+    "element-plus": "^2.8.8",
+    "pinia": "^4.0.2",
+    "vue": "^3.5.40",
+    "vue-echarts": "^8.1.0",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "typescript": "~6.0.0",
+    "vite": "^8.1.5",
+    "vue-tsc": "^3.3.7"
+  }
+}
