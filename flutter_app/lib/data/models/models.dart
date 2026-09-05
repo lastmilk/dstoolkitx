@@ -312,3 +312,100 @@ class Paged<T> {
         pageSize: (json['pageSize'] as num?)?.toInt() ?? 20,
       );
 }
+
+// ─────────── Git 生态 ───────────
+
+/// GET /configs/:id/git-info
+class GitInfo {
+  const GitInfo({
+    required this.repoUrl,
+    required this.gitUsername,
+    required this.needsGitUsername,
+    required this.hasKey,
+    required this.defaultBranch,
+  });
+
+  final String repoUrl;
+  final String? gitUsername;
+  final bool needsGitUsername;
+  final bool hasKey;
+  final String defaultBranch;
+
+  factory GitInfo.fromJson(Map<String, dynamic> json) => GitInfo(
+        repoUrl: json['repoUrl'] as String,
+        gitUsername: json['gitUsername'] as String?,
+        needsGitUsername: json['needsGitUsername'] as bool? ?? false,
+        hasKey: json['hasKey'] as bool? ?? false,
+        defaultBranch: json['defaultBranch'] as String? ?? 'main',
+      );
+}
+
+/// GET /gitkeys 中的单个 key（不含明文）
+class GitKeyItem {
+  const GitKeyItem({
+    required this.id,
+    required this.name,
+    required this.prefix,
+    required this.masked,
+    required this.scope,
+    required this.containerId,
+    this.expiresAt,
+    this.revokedAt,
+  });
+
+  final int id;
+  final String name;
+  final String prefix;
+  final String masked;
+  final String scope; // global / container
+  final int? containerId;
+  final DateTime? expiresAt;
+  final DateTime? revokedAt;
+
+  bool get isRevoked => revokedAt != null;
+  bool get isExpired =>
+      expiresAt != null && expiresAt!.isBefore(DateTime.now());
+
+  factory GitKeyItem.fromJson(Map<String, dynamic> json) => GitKeyItem(
+        id: (json['id'] as num).toInt(),
+        name: json['name'] as String? ?? '',
+        prefix: json['prefix'] as String? ?? '',
+        masked: json['masked'] as String? ?? '',
+        scope: json['scope'] as String? ?? 'container',
+        containerId: (json['containerId'] as num?)?.toInt(),
+        expiresAt: json['expiresAt'] == null
+            ? null
+            : DateTime.tryParse(json['expiresAt'] as String),
+        revokedAt: json['revokedAt'] == null
+            ? null
+            : DateTime.tryParse(json['revokedAt'] as String),
+      );
+}
+
+/// POST /gitkeys 响应（明文 key 仅此一次返回）
+class GitKeyCreated {
+  const GitKeyCreated({
+    required this.id,
+    required this.name,
+    required this.prefix,
+    required this.scope,
+    required this.key,
+    this.containerId,
+  });
+
+  final int id;
+  final String name;
+  final String prefix;
+  final String scope;
+  final String key;
+  final int? containerId;
+
+  factory GitKeyCreated.fromJson(Map<String, dynamic> json) => GitKeyCreated(
+        id: (json['id'] as num).toInt(),
+        name: json['name'] as String? ?? '',
+        prefix: json['prefix'] as String? ?? '',
+        scope: json['scope'] as String? ?? 'container',
+        key: json['key'] as String,
+        containerId: (json['containerId'] as num?)?.toInt(),
+      );
+}

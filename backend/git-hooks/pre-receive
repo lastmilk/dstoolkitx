@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# pre-receive：仅允许 refs/heads/* 分支更新，且所有新增 blob 必须符合对话 JSON 规范。
+# 仓库内 hooksPath 指向 backend/git-hooks（共享钩子），通过 GIT_DIR 定位当前仓库。
+set -u
+HOOKS_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec node "$HOOKS_DIR/../scripts/validate-push.mjs"

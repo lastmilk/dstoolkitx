@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# post-receive：ref 更新成功后，将 "old new ref" 追加到镜像队列，
+# 由后端 gitMirror.ts 工作器消费并同步进 MySQL。
+echo "DBG fired $(date +%T) GIT_DIR=$GIT_DIR" >> /tmp/hook-debug.log
+set -u
+HOOKS_DIR="$(cd "$(dirname "$0")" && pwd)"
+QUEUE_DIR="$HOOKS_DIR/../data/mirror-queue"
+mkdir -p "$QUEUE_DIR"
+# GIT_DIR 可能是相对路径（"."），先转绝对路径再取仓库名
+REPO_DIR="$(cd "$GIT_DIR" && pwd)"
+REPO_ID="$(basename "$REPO_DIR" .git)"
+while read -r old new ref; do
+  printf '%s %s %s\n' "$old" "$new" "$ref" >> "$QUEUE_DIR/$REPO_ID.jsonl"
+echo "DBG repo=$REPO_ID" >> /tmp/hook-debug.log
+done
+exit 0

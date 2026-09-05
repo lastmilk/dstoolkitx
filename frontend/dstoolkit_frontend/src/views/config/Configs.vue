@@ -9,11 +9,22 @@ import * as sweetalert from '@/utils/sweetalert'
 import {
   saveLocalConfig,
   getLocalConfigs,
+  getLocalConversations,
   deleteLocalConfig,
   buildAndPersistIndex,
   incrementalUpdateIndex,
+  loadConversationsPage,
 } from '@/utils/db'
-import type { DeepseekConfig, UploadResult } from '@/types'
+import type { DeepseekConfig, UploadResult, ParsedConversation } from '@/types'
+import GitConflictDialog from '@/components/GitConflictDialog.vue'
+import {
+  prepareGitSync,
+  syncContainer,
+  resolveConflicts,
+  type GitSyncContext,
+  type ConflictResolution,
+  type SyncOutcome,
+} from '@/utils/gitclient'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -102,7 +113,10 @@ async function submitModal() {
     const fd = new FormData()
     fd.append('file', modalFile.value)
     fd.append('name', modalName.value.trim())
-    const res = (await request.post('/configs', fd)) as UploadResult
+    // 云端已有容器走 PUT 增量更新（POST 一律新建容器）；本地容器继续 POST 后存 IndexedDB
+    const res = (modalMode.value === 'update' && modalTarget.value?.id != null
+      ? await request.put(`/configs/${modalTarget.value.id}/upload`, fd)
+      : await request.post('/configs', fd)) as UploadResult
     if (!res.persisted) {
       // 云端未持久化 → 存 IndexedDB 并构建 FlexSearch 索引
       await saveLocalConfig(res.config, res.conversations ?? [])
@@ -134,7 +148,99 @@ async function submitModal() {
   }
 }
 
-// ===== 移除 =====
+// ══════════ Git 增量同步（对话容器 ↔ 远端仓库） ══════════
+const gitSyncingId = ref<number | string | null>(null)
+const conflictVisible = ref(false)
+const conflictCtx = ref<GitSyncContext | null>(null)
+const conflictContainerName = ref('')
+const conflictResolving = ref(false)
+
+/** 云端容器：分页加载全部会话（batch，带 messages） */
+async function loadCloudConversations(configId: number): Promise<ParsedConversation[]> {
+  const out: ParsedConversation[] = []
+  let page = 1
+  for (;;) {
+    const res = await loadConversationsPage({
+      cloudSync: true, configId, page, pageSize: 100, withMessages: true,
+    })
+    out.push(...res.conversations)
+    if (!res.hasMore) break
+    page++
+  }
+  return out
+}
+
+/** 解析某容器当前数据源的全部会话（云端列表项走 DB，本地列表项走 IndexedDB） */
+async function loadContainerConversations(item: ConfigItem): Promise<{ configId: number; localMode: boolean; convs: ParsedConversation[] }> {
+  if (mode.value === 'cloud' && item.id != null) {
+    return { configId: item.id, localMode: false, convs: await loadCloudConversations(item.id) }
+  }
+  // 本地模式：按 deepseekUserId 匹配云端容器（Git 仓库挂在服务端容器上）
+  const res: any = await request.get('/configs')
+  const configs = (res.configs ?? []) as Array<{ id: number; name: string; deepseekUserId: string }>
+  const matched = configs.find((c) => c.deepseekUserId === item.deepseekUserId)
+  if (!matched) {
+    throw new Error('该账号尚未创建云端对话容器，请先在云端模式导入一次数据包')
+  }
+  return { configId: matched.id, localMode: true, convs: await getLocalConversations(item.deepseekUserId) }
+}
+
+function reportOutcome(out: SyncOutcome) {
+  if (out.status === 'up-to-date') {
+    sweetalert.success('已是最新', '远端仓库与本地数据一致，无需推送')
+  } else if (out.status === 'pushed') {
+    sweetalert.success('Git 推送成功', `提交 ${out.commit.slice(0, 7)} · 推送 ${Math.max(out.pushed, 0)} 个变更 · 并入远端 ${out.pulled} 个对话`)
+  }
+}
+
+async function gitSync(item: ConfigItem) {
+  if (gitSyncingId.value != null) return
+  const key = item.id ?? item.deepseekUserId
+  gitSyncingId.value = key
+  try {
+    const { configId, localMode, convs } = await loadContainerConversations(item)
+    const ready = await prepareGitSync(configId)
+    ready.localMode = localMode
+    const out = await syncContainer({
+      configId,
+      containerName: ready.containerName || item.name,
+      deepseekUserId: ready.deepseekUserId || item.deepseekUserId,
+      repoUrl: ready.repoUrl,
+      conversations: convs,
+      localMode: ready.localMode,
+      gitUsername: ready.gitUsername,
+      apiKey: ready.apiKey,
+    })
+    if (out.status === 'conflicts') {
+      conflictCtx.value = out.ctx
+      conflictContainerName.value = ready.containerName || item.name
+      conflictVisible.value = true
+      return
+    }
+    reportOutcome(out)
+  } catch (e: any) {
+    if (e?.message) sweetalert.error('Git 同步失败', e.message)
+  } finally {
+    gitSyncingId.value = null
+  }
+}
+
+async function onConflictResolve(resolutions: Record<string, ConflictResolution>) {
+  if (!conflictCtx.value) return
+  conflictResolving.value = true
+  try {
+    const out = await resolveConflicts(conflictCtx.value, resolutions)
+    conflictVisible.value = false
+    reportOutcome(out)
+  } catch (e: any) {
+    sweetalert.error('Git 推送失败', e?.message ?? '推送被拒')
+  } finally {
+    conflictResolving.value = false
+    conflictCtx.value = null
+  }
+}
+
+// ══════════ 移除 ══════════
 async function removeConfig(item: ConfigItem) {
   const ok = await sweetalert.confirmDanger(
     '确定移除此账号？',
@@ -168,8 +274,8 @@ onMounted(reload)
     <el-card shadow="never" class="toolbar-card">
       <div class="toolbar">
         <div class="toolbar-title">
-          <h2>配置管理</h2>
-          <p class="toolbar-sub">导入 Deepseek 导出的 zip 数据包，管理本地 / 云端账号配置</p>
+          <h2>对话容器</h2>
+          <p class="toolbar-sub">导入 Deepseek 数据包创建对话容器，支持 Git 增量同步与多端协作</p>
         </div>
         <div class="toolbar-actions">
           <el-segmented v-model="mode" :options="modeOptions" @change="reload" />
@@ -193,7 +299,7 @@ onMounted(reload)
       <div v-loading="loading" class="list-wrap">
         <el-empty
           v-if="!loading && configs.length === 0"
-          description="还没有导入的账号，点击右上角导入新账号"
+          description="还没有对话容器，点击右上角导入新账号"
           :image-size="80"
         />
         <div v-else class="config-grid">
@@ -235,6 +341,16 @@ onMounted(reload)
               <el-button size="small" @click="viewConversations">
                 <el-icon :size="14" style="margin-right: 4px;"><View /></el-icon>
                 查看
+              </el-button>
+              <el-button
+                size="small"
+                type="success"
+                plain
+                :loading="gitSyncingId === (c.id ?? c.deepseekUserId)"
+                @click="gitSync(c)"
+              >
+                <el-icon :size="14" style="margin-right: 4px;"><Share /></el-icon>
+                Git 同步
               </el-button>
               <el-button size="small" type="primary" plain @click="openUpdate(c)">
                 <el-icon :size="14" style="margin-right: 4px;"><Refresh /></el-icon>
@@ -290,6 +406,16 @@ onMounted(reload)
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- Git 冲突处理对话框 -->
+    <GitConflictDialog
+      v-model:visible="conflictVisible"
+      :conflicts="conflictCtx?.conflicts ?? []"
+      :container-name="conflictContainerName"
+      :resolving="conflictResolving"
+      @resolve="onConflictResolve"
+      @cancel="conflictVisible = false"
+    />
   </div>
 </template>
 

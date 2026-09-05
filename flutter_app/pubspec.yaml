@@ -30,6 +30,11 @@ dependencies:
   # 工具
   intl: ^0.19.0
   crypto: ^3.0.6
+  # Git 生态（对话增量同步仓库目录定位）
+  path_provider: ^2.1.5
+  git2dart: ^0.5.5
+  # git2dart 透传导出 LibGit2Error，需要显式引入
+  git2dart_binaries: ^1.13.0
 
 dev_dependencies:
   flutter_test:

@@ -7,6 +7,7 @@ import '../../../data/models/models.dart';
 import '../../../widgets/chat_bubble.dart';
 import '../../../widgets/turn_tree.dart';
 import '../../auth/auth_controller.dart';
+import '../../git/git_sync_flow.dart';
 
 /// 对话详情：Turn/Version/SubTurn 树渲染 + Markdown 气泡 + 离线缓存
 class ConversationDetailPage extends ConsumerStatefulWidget {
@@ -29,6 +30,7 @@ class _ConversationDetailPageState
   ConversationDetail? _detail;
   bool _loading = true;
   bool _offline = false;
+  bool _gitSyncing = false;
   String? _error;
 
   @override
@@ -73,6 +75,23 @@ class _ConversationDetailPageState
           _error = '加载失败，请检查网络后重试';
         });
       }
+    }
+  }
+
+  /// Git 增量同步：把当前对话推送到所属容器的远端仓库（含冲突处理）
+  Future<void> _pushGitIncremental() async {
+    final detail = _detail;
+    if (detail == null || _gitSyncing) return;
+    setState(() => _gitSyncing = true);
+    try {
+      await runConversationIncrementalSync(
+        context,
+        ref,
+        configId: widget.configId,
+        detail: detail,
+      );
+    } finally {
+      if (mounted) setState(() => _gitSyncing = false);
     }
   }
 
@@ -132,6 +151,18 @@ class _ConversationDetailPageState
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
+          if (!_offline && _detail != null)
+            IconButton(
+              tooltip: 'Git 增量同步',
+              icon: _gitSyncing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_upload_outlined),
+              onPressed: _gitSyncing ? null : _pushGitIncremental,
+            ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _load,

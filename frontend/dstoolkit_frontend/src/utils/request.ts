@@ -3,6 +3,11 @@ import { ElMessage } from 'element-plus'
 
 const TOKEN_KEY = 'dstoolkit_token'
 
+/** 读取当前登录态 JWT（Git 内置同步等非 axios 场景复用） */
+export function getSessionToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
 export const request = axios.create({
   baseURL: '/api',
   timeout: 120000,

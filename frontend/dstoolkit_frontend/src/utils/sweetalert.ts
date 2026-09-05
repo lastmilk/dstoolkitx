@@ -10,8 +10,10 @@ const swalBase = Swal.mixin({
   reverseButtons: true,
   confirmButtonText: '确定',
   cancelButtonText: '取消',
-  showClass: { popup: 'swal2-noanimation', backdrop: 'swal2-noanimation' },
-  hideClass: { popup: 'swal2-noanimation', backdrop: 'swal2-noanimation' },
+  // 官方无动画写法：置空 showClass/hideClass，关闭时走立即移除路径
+  // （避免动画结束事件不触发导致弹窗残留）
+  showClass: { popup: '', backdrop: '' },
+  hideClass: { popup: '', backdrop: '' },
   customClass: {
     popup: 'sweet-popup',
     title: 'sweet-title',

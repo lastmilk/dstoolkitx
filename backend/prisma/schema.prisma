@@ -51,6 +51,9 @@ model User {
   role             Role             @default(USER)
   cloudSyncEnabled Boolean          @default(false)
 
+  // Git 生态：Git 推送专用用户名（英文+数字+下划线；username 含中文时必填）
+  gitUsername      String?          @unique
+
   // 订阅等级
   tier             Tier             @default(FREE)
   tierActivatedAt  DateTime?
@@ -72,6 +75,7 @@ model User {
   configs          DeepseekConfig[]
   apiKeys          ApiKey[]
   apiTokens        ApiToken[]
+  gitApiKeys       GitApiKey[]
   redeemedCards    RedeemCard[]
   summaries        ConvSummary[]
   knowledgeCards   KnowledgeCard[]
@@ -102,9 +106,10 @@ model DeepseekConfig {
   updatedAt      DateTime      @updatedAt
   conversations  Conversation[]
   shares         Share[]
+  gitApiKeys     GitApiKey[]
 
-  @@unique([userId, deepseekUserId])
-  @@index([userId])
+  // 同一 DeepSeek 账号允许建多个容器（每个容器独立 Git 仓库 u<uid>_c<cid>.git）
+  @@index([userId, deepseekUserId])
 }
 
 model Conversation {
@@ -171,6 +176,26 @@ model AppMarketEntry {
   createdAt   DateTime @default(now())
 
   @@index([category])
+}
+
+// Git 生态推送/拉取凭证：Basic Auth 用（username=GitUsername, password=dstkg_ 明文）
+// containerId 为空 = 全局 key（可访问该用户全部对话容器仓库，安全性略低）
+model GitApiKey {
+  id          Int       @id @default(autoincrement())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  container   DeepseekConfig? @relation(fields: [containerId], references: [id], onDelete: Cascade)
+  containerId Int?
+  name        String
+  keyHash     String    @unique // SHA-256(明文)，不存明文
+  prefix      String    // dstkg_xxxx 掩码展示用
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([containerId])
 }
 
 // dstoolkit RESTful API 访问令牌（区别于 ApiKey：ApiKey 存储用户的 Deepseek 密钥）

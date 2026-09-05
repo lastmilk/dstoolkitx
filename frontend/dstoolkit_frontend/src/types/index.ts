@@ -97,6 +97,46 @@ export interface CreatedApiToken {
   expiresAt: string | null
 }
 
+// ══════════ Git 生态 ══════════
+
+/** Git APIKey 条目（GET /gitkeys 返回，明文仅创建时返回一次） */
+export interface GitApiKeyItem {
+  id: number
+  name: string
+  prefix: string
+  masked: string
+  scope: 'global' | 'container'
+  containerId: number | null
+  lastUsedAt: string | null
+  expiresAt: string | null
+  revokedAt: string | null
+  createdAt: string
+  key?: string
+}
+
+export interface GitKeysInfo {
+  username: string
+  gitUsername: string | null
+  needsGitUsername: boolean
+  keys: GitApiKeyItem[]
+}
+
+export interface GitRepoInfo {
+  repoUrl: string
+  gitUsername: string | null
+  needsGitUsername: boolean
+  hasKey: boolean
+  defaultBranch: string
+}
+
+/** 新建 Git APIKey 的表单参数 */
+export interface CreateGitKeyPayload {
+  name: string
+  containerId?: number | null
+  expiresInDays?: number
+  confirmGlobal?: boolean
+}
+
 export interface MarketEntry {
   id: number
   name: string

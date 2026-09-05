@@ -670,7 +670,7 @@ export async function loadConversationsPage(opts: {
 export async function loadConversationDetail(
   configId: number,
   deepseekConvId: string,
-): Promise<{ messages: ParsedMessage[]; turns: any[] }> {
+): Promise<{ messages: ParsedMessage[]; turns: any[]; mapping: Record<string, unknown> }> {
   const data = (await request.get(
     `/configs/${configId}/conversations/${encodeURIComponent(deepseekConvId)}`,
   )) as any
@@ -687,6 +687,8 @@ export async function loadConversationDetail(
       subTurnIndex: m.subTurnIndex ?? undefined,
     })),
     turns: data.turns ?? [],
+    // 完整 mapping 树（Git 增量推送时优先用它保持全保真）
+    mapping: (data.rawMapping ?? {}) as Record<string, unknown>,
   }
 }
 

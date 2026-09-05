@@ -1,0 +1,5 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = true
+	hooksPath = /home/pmfish/Documents/trae_projects/dstoolkit/backend/git-hooks

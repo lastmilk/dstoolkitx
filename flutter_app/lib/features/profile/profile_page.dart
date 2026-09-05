@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../auth/auth_controller.dart';
+import '../git/git_center_page.dart';
 
 /// 个人中心：用户信息 + 等级徽章 + 升级（跳 Web）+ 登出
 class ProfilePage extends ConsumerWidget {
@@ -134,6 +135,20 @@ class ProfilePage extends ConsumerWidget {
               surface: neu.surface,
               shadowDark: neu.shadowDark,
               shadowLight: neu.shadowLight,
+            ),
+            const SizedBox(height: 12),
+
+            // ── Git 一体化生态：凭证 + 对话容器同步 ──
+            _NeuListTile(
+              icon: Icons.merge_rounded,
+              title: 'Git 同步中心（凭证 / 容器增量同步）',
+              trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+              surface: neu.surface,
+              shadowDark: neu.shadowDark,
+              shadowLight: neu.shadowLight,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const GitCenterPage()),
+              ),
             ),
             const SizedBox(height: 12),
 

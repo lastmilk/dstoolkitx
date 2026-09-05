@@ -24,11 +24,16 @@ import summaryRoutes from './routes/summary.routes.js'
 import folderRoutes from './routes/folder.routes.js'
 import referralRoutes from './routes/referral.routes.js'
 import oauth2Routes from './routes/oauth2.routes.js'
+import gitRoutes from './routes/git.routes.js'
+import gitkeyRoutes from './routes/gitkey.routes.js'
+import { startMirrorWorker } from './services/gitMirror.js'
 
 const app = express()
 
 app.use(cors({ origin: [env.frontendOrigin, env.adminOrigin], credentials: true }))
 app.use(compression())  // gzip 压缩：20MB JSON → ~1-2MB，大幅减少传输时间
+// Git 智能HTTP：必须在 express.json 之前挂载（原始流透传给 git http-backend）
+app.use('/git', gitRoutes)
 app.use(express.json({ limit: '50mb' }))
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
@@ -47,6 +52,7 @@ app.use('/api/admin', adminRoutes)
 app.use('/api/search', searchRoutes)
 app.use('/api/chat', chatRoutes)
 app.use('/api/tokens', tokenRoutes)
+app.use('/api/gitkeys', gitkeyRoutes)
 app.use('/api/v1', v1Routes)
 app.use('/api/subscription', subscriptionRoutes)
 app.use('/api/summaries', summaryRoutes)
@@ -93,6 +99,8 @@ async function seed() {
 
 const server = app.listen(env.port, async () => {
   console.log(`[dstoolkit] backend running on http://localhost:${env.port}`)
+  startMirrorWorker() // Git 推送 → MySQL 镜像队列消费
+  console.log('[dstoolkit] git smart-http at /git/<u<uid>_c<cid>>.git')
   if (env.meiliEnabled) {
     console.log(`[dstoolkit] Meilisearch enabled at ${env.meiliHost}`)
   } else {

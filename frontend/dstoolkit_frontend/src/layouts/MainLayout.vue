@@ -46,7 +46,7 @@ interface MenuItem {
   icon: Component
 }
 const menuItems: MenuItem[] = [
-  { label: '账号配置', path: '/configs', icon: Upload },
+  { label: '对话容器', path: '/configs', icon: Upload },
   { label: '对话探索', path: '/explore', icon: Search },
   { label: '数据统计', path: '/stats', icon: DataAnalysis },
   { label: 'Alpaca 导出', path: '/alpaca', icon: SwitchIcon },
@@ -58,7 +58,7 @@ const menuItems: MenuItem[] = [
 const activePath = computed(() => route.path)
 
 const PAGE_META: Record<string, { title: string; subtitle: string }> = {
-  configs: { title: '账号配置', subtitle: '上传与管理你的 Deepseek 数据' },
+  configs: { title: '对话容器', subtitle: '导入 Deepseek 数据包，Git 增量同步管理对话' },
   explore: { title: '对话探索', subtitle: '搜索、浏览和继续你的对话' },
   stats: { title: '数据统计', subtitle: '对话量、模型分布、活跃时段' },
   alpaca: { title: 'Alpaca 导出', subtitle: '导出为微调训练数据格式' },

@@ -42,7 +42,15 @@ import {
 } from '@/utils/db'
 import { request } from '@/utils/request'
 import ChatViewer from '@/components/ChatViewer.vue'
+import GitConflictDialog from '@/components/GitConflictDialog.vue'
 import type { ParsedConversation } from '@/types'
+import {
+  prepareGitSync,
+  syncSingleConversation,
+  resolveConflicts,
+  type GitSyncContext,
+  type ConflictResolution,
+} from '@/utils/gitclient'
 
 const auth = useAuthStore()
 const searchModelStore = useSearchModelStore()
@@ -316,6 +324,87 @@ function onFilterChange(key: keyof SearchFilters, checked: boolean) {
 
 function onRegexChange() {
   if (query.value.trim()) void doSearch()
+}
+
+// ═══════════ Git 增量推送（已导入对话 → 远端仓库，单对话一个 commit） ═══════════
+const gitSyncingConv = ref<string | null>(null)
+const conflictVisible = ref(false)
+const conflictCtx = ref<GitSyncContext | null>(null)
+const conflictResolving = ref(false)
+const conflictContainerName = ref('')
+
+async function pushIncremental(item: SearchListItem) {
+  const conv = item.conv
+  if (gitSyncingConv.value) return
+  gitSyncingConv.value = conv.deepseekConvId
+  try {
+    // 1. 补全数据：云端 lite 会话按需加载详情（含 rawMapping）；本地会话自带
+    let full = conv
+    if (full.messages.length === 0 && full.configId != null) {
+      const detail = await loadConversationDetail(full.configId, full.deepseekConvId)
+      full = { ...conv, messages: detail.messages, turns: detail.turns, mapping: detail.mapping }
+    }
+    // 2. 定位对话容器（云端 conv 带 configId；本地 conv 按 deepseekUserId 匹配云端容器）
+    let configId = full.configId ?? null
+    let localMode = false
+    const localUid = (full as unknown as { deepseekUserId?: string }).deepseekUserId
+    if (configId == null) {
+      const res: any = await request.get('/configs')
+      const configs = (res.configs ?? []) as Array<{ id: number; name: string; deepseekUserId: string }>
+      const matched = localUid ? configs.find((c) => c.deepseekUserId === localUid) : undefined
+      if (!matched) {
+        ElMessage.warning('该对话所属账号还没有云端对话容器，无法使用 Git 增量同步')
+        return
+      }
+      configId = matched.id
+      localMode = true
+    }
+    // 3. 鉴权准备（GitUsername / APIKey，首次使用时引导生成）
+    const ready = await prepareGitSync(configId)
+    ready.localMode = localMode
+    // 4. 单对话增量推送（远端同文件有变更时进入冲突流程）
+    const out = await syncSingleConversation({
+      configId,
+      containerName: ready.containerName,
+      deepseekUserId: ready.deepseekUserId,
+      repoUrl: ready.repoUrl,
+      conversation: full,
+      localMode,
+      gitUsername: ready.gitUsername,
+      apiKey: ready.apiKey,
+    })
+    if (out.status === 'conflicts') {
+      conflictCtx.value = out.ctx
+      conflictContainerName.value = ready.containerName
+      conflictVisible.value = true
+      return
+    }
+    if (out.status === 'up-to-date') {
+      ElMessage.success('远端已是最新，无需增量推送')
+    } else {
+      ElMessage.success(`增量推送成功（${out.commit.slice(0, 7)}）`)
+    }
+  } catch (e: unknown) {
+    ElMessage.error((e as Error)?.message || 'Git 增量同步失败')
+  } finally {
+    gitSyncingConv.value = null
+  }
+}
+
+async function onConflictResolve(resolutions: Record<string, ConflictResolution>) {
+  if (!conflictCtx.value) return
+  conflictResolving.value = true
+  try {
+    const out = await resolveConflicts(conflictCtx.value, resolutions)
+    conflictVisible.value = false
+    if (out.status === 'pushed') ElMessage.success(`冲突已解决并推送（${out.commit.slice(0, 7)}）`)
+    if (out.status === 'up-to-date') ElMessage.success('已处理，远端与本地一致')
+  } catch (e: unknown) {
+    ElMessage.error((e as Error)?.message || 'Git 推送失败')
+  } finally {
+    conflictResolving.value = false
+    conflictCtx.value = null
+  }
 }
 
 // ═══════════ 选中会话（云端 lite 按需加载详情） ═══════════
@@ -649,6 +738,19 @@ onUnmounted(() => {
                 >
                   {{ roleLabel(item.role) }}
                 </el-tag>
+                <el-tooltip content="将此对话以 Git 增量提交推送到远端仓库" placement="top">
+                  <el-button
+                    class="conv-git-btn"
+                    size="small"
+                    link
+                    type="success"
+                    :loading="gitSyncingConv === item.conv.deepseekConvId"
+                    @click.stop="pushIncremental(item)"
+                  >
+                    <el-icon :size="13" style="margin-right: 2px;"><Share /></el-icon>
+                    增量
+                  </el-button>
+                </el-tooltip>
               </div>
               <div v-if="mode === 'search' && item.snippet" class="conv-snippet">
                 {{ item.snippet }}
@@ -690,6 +792,16 @@ onUnmounted(() => {
         <ChatViewer :conversation="activeConv" :api-keys="apiKeys" />
       </div>
     </div>
+
+    <!-- Git 冲突处理对话框 -->
+    <GitConflictDialog
+      v-model:visible="conflictVisible"
+      :conflicts="conflictCtx?.conflicts ?? []"
+      :container-name="conflictContainerName"
+      :resolving="conflictResolving"
+      @resolve="onConflictResolve"
+      @cancel="conflictVisible = false"
+    />
   </div>
 </template>
 
@@ -866,6 +978,11 @@ onUnmounted(() => {
   gap: 6px;
   margin-top: 6px;
   flex-wrap: wrap;
+}
+.conv-git-btn {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 2px 4px;
 }
 .conv-snippet {
   margin-top: 6px;

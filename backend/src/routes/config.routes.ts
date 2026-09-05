@@ -1,5 +1,7 @@
 import { Router } from 'express'
 import multer from 'multer'
+import fs from 'node:fs'
+import path from 'node:path'
 import { prisma } from '../utils/prisma.js'
 import { asyncHandler } from '../utils/async.js'
 import { verifyJwt, type AuthedRequest } from '../middleware/auth.js'
@@ -10,7 +12,7 @@ import {
   buildDeepseekUser,
   type ParsedConversation,
 } from '../services/deepseekParser.js'
-import { indexDocuments, deleteDocuments, type MeiliDoc } from '../services/meilisearch.js'
+import { upsertConversations } from '../services/conversationStore.js'
 import { parsePaging } from '../utils/paging.js'
 import { aggregateTurnsFromMessages } from '../services/turns.js'
 
@@ -22,122 +24,8 @@ const upload = multer({
 
 router.use(verifyJwt)
 
-// 由单个 ParsedConversation 构建该会话的 MeiliDoc[]：
-//  - 每条 message 一个文档，id = `msg:${convId}:${nodeId}`
-//  - 额外一条 title 文档，id = `title:${convId}`，role='TITLE'，便于按会话标题检索
-function buildMeiliDocs(userId: number, configId: number, conv: ParsedConversation): MeiliDoc[] {
-  const docs: MeiliDoc[] = []
-  const convId = conv.deepseekConvId
-  docs.push({
-    id: `title:${convId}`,
-    userId,
-    configId,
-    convId,
-    nodeId: `title:${convId}`,
-    title: conv.title,
-    content: conv.title,
-    role: 'TITLE',
-    model: null,
-    turnIndex: null,
-    versionIndex: null,
-    subTurnIndex: null,
-    insertedAt: conv.insertedAt.toISOString(),
-  })
-  for (const msg of conv.messages) {
-    docs.push({
-      id: `msg:${convId}:${msg.nodeId}`,
-      userId,
-      configId,
-      convId,
-      nodeId: msg.nodeId,
-      title: conv.title,
-      content: msg.content,
-      role: msg.role,
-      model: msg.model,
-      turnIndex: msg.turnIndex ?? null,
-      versionIndex: msg.versionIndex ?? null,
-      subTurnIndex: msg.subTurnIndex ?? null,
-      insertedAt: msg.insertedAt.toISOString(),
-    })
-  }
-  return docs
-}
-
-async function upsertConversations(userId: number, configId: number, convs: ParsedConversation[]) {
-  const allNewDocs: MeiliDoc[] = []
-  // 批量查询现有会话（消除 N+1 findUnique）
-  const existingConvs = await prisma.conversation.findMany({
-    where: { configId, deepseekConvId: { in: convs.map((c) => c.deepseekConvId) } },
-    select: { id: true, deepseekConvId: true, updatedAt: true },
-  })
-  const existingMap = new Map(existingConvs.map((c) => [c.deepseekConvId, c]))
-
-  for (const c of convs) {
-    const existing = existingMap.get(c.deepseekConvId)
-    const messageData = c.messages.map((m) => ({
-      nodeId: m.nodeId,
-      parentId: m.parentId,
-      role: m.role,
-      model: m.model,
-      content: m.content,
-      insertedAt: m.insertedAt,
-      turnIndex: m.turnIndex ?? null,
-      versionIndex: m.versionIndex ?? null,
-      subTurnIndex: m.subTurnIndex ?? null,
-    }))
-    if (existing) {
-      // 增量：仅当 updatedAt 更新时刷新 mapping + 重建 messages
-      if (c.updatedAt > existing.updatedAt) {
-        // 先抓旧 nodeId，用于清理 Meilisearch 中该会话的旧 msg 文档
-        const oldMsgs = await prisma.message.findMany({
-          where: { conversationId: existing.id },
-          select: { nodeId: true },
-        })
-        const oldDocIds = oldMsgs.map((m) => `msg:${c.deepseekConvId}:${m.nodeId}`)
-        await prisma.conversation.update({
-          where: { id: existing.id },
-          data: {
-            title: c.title,
-            insertedAt: c.insertedAt,
-            updatedAt: c.updatedAt,
-            turnCount: c.turns.length,
-            rawMapping: c.mapping as any,
-            messages: { deleteMany: {}, create: messageData },
-          },
-        })
-        // 同步 Meilisearch：删旧 msg 文档（title 文档由 addDocuments 覆盖即可）
-        try {
-          await deleteDocuments(userId, oldDocIds)
-        } catch (e) {
-          console.warn('[meilisearch] deleteDocuments during upsert failed', e)
-        }
-        allNewDocs.push(...buildMeiliDocs(userId, configId, c))
-      }
-    } else {
-      await prisma.conversation.create({
-        data: {
-          configId,
-          deepseekConvId: c.deepseekConvId,
-          title: c.title,
-          insertedAt: c.insertedAt,
-          updatedAt: c.updatedAt,
-          turnCount: c.turns.length,
-          rawMapping: c.mapping as any,
-          messages: { create: messageData },
-        },
-      })
-      allNewDocs.push(...buildMeiliDocs(userId, configId, c))
-    }
-  }
-  if (allNewDocs.length > 0) {
-    // 非阻塞：后台异步索引，不等待 Meilisearch 返回即可响应上传完成
-    setImmediate(() => {
-      indexDocuments(userId, allNewDocs).catch((e) =>
-        console.warn('[meilisearch] background indexDocuments failed', e),
-      )
-    })
-  }
-}
+// Git 仓库根目录（与 git.routes.ts 保持一致）
+const GIT_REPO_ROOT = process.env.GIT_REPO_ROOT || path.resolve(process.cwd(), 'data', 'git-repos')
 
 function publicConfig(c: any) {
   return {
@@ -185,13 +73,39 @@ async function streamUploadToCloud(
   return count
 }
 
-// POST /api/configs  multipart: file(zip) + name
+// POST /api/configs  multipart: file(zip) + name [+ mode=git]
+// mode=git（对话容器 Git 流程）：只解析 zip 并建/取容器壳，不写对话入库 ——
+// 对话由客户端以 Git 增量提交推送后经镜像入库。
 router.post('/', upload.single('file'), asyncHandler(async (req: AuthedRequest, res) => {
   if (!req.file) return res.status(400).json({ error: '请上传 zip 压缩包' })
   const name = String(req.body.name || '').trim()
   if (!name) return res.status(400).json({ error: '请填写配置名称' })
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: req.user!.id } })
+
+  // ── Git 模式：解析 + 容器壳，不入库 ──
+  if (String(req.body.mode || '') === 'git') {
+    const parsed = await parseDeepseekZip(req.file.buffer)
+    const deepseekUser = parsed.deepseekUser
+    // 同账号可建多容器：每次 Git 导入都新建（仓库 = u<uid>_c<cid>.git，cid 唯一）
+    const config = await prisma.deepseekConfig.create({
+      data: {
+        userId: user.id,
+        name,
+        deepseekUserId: deepseekUser.userId,
+        deepseekEmail: deepseekUser.email,
+        deepseekMobile: deepseekUser.mobile,
+      },
+    })
+    return res.json({
+      persisted: false,
+      git: true,
+      config: publicConfig(config),
+      deepseekUser,
+      conversations: parsed.conversations,
+      conversationCount: parsed.conversations.length,
+    })
+  }
 
   if (!user.cloudSyncEnabled) {
     // cloud=false：不落库，流式解析后收集全部会话返回前端存 IndexedDB
@@ -213,34 +127,20 @@ router.post('/', upload.single('file'), asyncHandler(async (req: AuthedRequest, 
   }
 
   // cloud=true：流式解析 + 分块写库（不回传全部会话，前端按需分页加载）
-  // 只解压一次 zip：先取 user.json 判定账号、建/改配置，再用 conversationsBuffer 分块写库
+  // 只解压一次 zip：先取 user.json 判定账号、新建容器，再用 conversationsBuffer 分块写库
   const { userJson, conversationsBuffer } = extractZipEntries(req.file.buffer)
   const deepseekUser = buildDeepseekUser(userJson)
-  const existing = await prisma.deepseekConfig.findUnique({
-    where: {
-      userId_deepseekUserId: { userId: user.id, deepseekUserId: deepseekUser.userId },
+  // 同账号可建多容器：导入一律新建（更新已有容器请走 PUT /:id/upload）
+  const created = await prisma.deepseekConfig.create({
+    data: {
+      userId: user.id,
+      name,
+      deepseekUserId: deepseekUser.userId,
+      deepseekEmail: deepseekUser.email,
+      deepseekMobile: deepseekUser.mobile,
     },
   })
-
-  let configId: number
-  if (existing) {
-    const updated = await prisma.deepseekConfig.update({
-      where: { id: existing.id },
-      data: { name, deepseekEmail: deepseekUser.email, deepseekMobile: deepseekUser.mobile },
-    })
-    configId = updated.id
-  } else {
-    const created = await prisma.deepseekConfig.create({
-      data: {
-        userId: user.id,
-        name,
-        deepseekUserId: deepseekUser.userId,
-        deepseekEmail: deepseekUser.email,
-        deepseekMobile: deepseekUser.mobile,
-      },
-    })
-    configId = created.id
-  }
+  const configId = created.id
 
   const conversationCount = await streamUploadToCloud(req.user!.id, configId, conversationsBuffer)
 
@@ -256,12 +156,33 @@ router.post('/', upload.single('file'), asyncHandler(async (req: AuthedRequest, 
   })
 }))
 
-// PUT /api/configs/:id/upload  multipart: file(zip) 增量更新（仅 cloud=true 的 DB 配置）
+// PUT /api/configs/:id/upload  multipart: file(zip) [+ mode=git] 增量更新
+// mode=git：只解析返回 conversations，不写库（客户端 Git 提交后镜像入库）
 router.put('/:id/upload', upload.single('file'), asyncHandler(async (req: AuthedRequest, res) => {
   if (!req.file) return res.status(400).json({ error: '请上传 zip 压缩包' })
   const id = Number(req.params.id)
   const config = await prisma.deepseekConfig.findFirst({ where: { id, userId: req.user!.id } })
   if (!config) return res.status(404).json({ error: '配置不存在' })
+  // 允许顺带改名（前端更新弹窗支持编辑名称）
+  const newName = String(req.body.name || '').trim()
+  if (newName && newName !== config.name) {
+    await prisma.deepseekConfig.update({ where: { id: config.id }, data: { name: newName } })
+    config.name = newName
+  }
+  if (String(req.body.mode || '') === 'git') {
+    const parsed = await parseDeepseekZip(req.file.buffer)
+    if (parsed.deepseekUser.userId !== config.deepseekUserId) {
+      return res.status(400).json({ error: '上传的数据包不属于该容器的 Deepseek 账号' })
+    }
+    return res.json({
+      persisted: false,
+      git: true,
+      config: publicConfig(config),
+      deepseekUser: parsed.deepseekUser,
+      conversations: parsed.conversations,
+      conversationCount: parsed.conversations.length,
+    })
+  }
   // 只解压一次 zip：取 user.json 校验账号 + conversationsBuffer 分块写库
   const { userJson, conversationsBuffer } = extractZipEntries(req.file.buffer)
   const deepseekUser = buildDeepseekUser(userJson)
@@ -407,12 +328,39 @@ router.get('/:id/conversations/:convId', asyncHandler(async (req: AuthedRequest,
   return res.json({ ...conv, turns })
 }))
 
+// GET /api/configs/:id/git-info  Git 生态：仓库地址 + 推送用户名 + 是否已有可用 key
+router.get('/:id/git-info', asyncHandler(async (req: AuthedRequest, res) => {
+  const id = Number(req.params.id)
+  const config = await prisma.deepseekConfig.findFirst({ where: { id, userId: req.user!.id } })
+  if (!config) return res.status(404).json({ error: '配置不存在' })
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: req.user!.id },
+    select: { id: true, username: true, gitUsername: true },
+  })
+  const hasKey = await prisma.gitApiKey.findFirst({
+    where: { userId: user.id, revokedAt: null, OR: [{ containerId: null }, { containerId: id }] },
+    select: { id: true },
+  })
+  const gitUsername = user.gitUsername ?? (/[^\x00-\x7F]/.test(user.username) ? null : user.username)
+  return res.json({
+    repoUrl: `/git/u${user.id}_c${config.id}.git`,
+    gitUsername,
+    needsGitUsername: !gitUsername,
+    hasKey: !!hasKey,
+    defaultBranch: 'main',
+  })
+}))
+
 // DELETE /api/configs/:id
 router.delete('/:id', asyncHandler(async (req: AuthedRequest, res) => {
   const id = Number(req.params.id)
   const config = await prisma.deepseekConfig.findFirst({ where: { id, userId: req.user!.id } })
   if (!config) return res.status(404).json({ error: '配置不存在' })
   await prisma.deepseekConfig.delete({ where: { id } })
+  // 同步清理 Git 仓库（幂等：不存在即忽略）
+  try {
+    fs.rmSync(path.join(GIT_REPO_ROOT, `u${req.user!.id}_c${config.id}.git`), { recursive: true, force: true })
+  } catch {}
   return res.json({ ok: true })
 }))
 

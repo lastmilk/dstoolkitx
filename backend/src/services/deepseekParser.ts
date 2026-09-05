@@ -188,7 +188,7 @@ function buildNodeIndexMap(turns: Turn[]): Map<string, { turnIndex: number; vers
  * 处理单个会话对象：extractTurns（依赖该会话的完整 mapping 树，无法流式）+
  * 前序遍历扁平化为 messages[]。流式解析时每解析完一个会话即调用此函数。
  */
-function processConversation(c: any): ParsedConversation {
+export function processConversation(c: any): ParsedConversation {
   const mapping: Record<string, any> = c.mapping || {}
 
   // 五层树（L3-L5）—— 需要完整 mapping，无法流式处理
