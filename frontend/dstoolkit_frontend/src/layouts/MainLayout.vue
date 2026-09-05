@@ -10,19 +10,23 @@ import type { Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Upload, Search, DataAnalysis, Switch as SwitchIcon, Wallet, Medal, Grid, User,
-  Sunny, Moon, SwitchButton, Cloudy, CircleClose,
+  Sunny, Moon, SwitchButton, Cloudy, CircleClose, Brush,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { clearLocalData } from '@/utils/db'
 import { confirmDanger } from '@/utils/sweetalert'
+import StyleSettingsDrawer from '@/components/StyleSettingsDrawer.vue'
 import logo from '@/assets/logo.png'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const themeStore = useThemeStore()
+
+// ═══════════ 外观设置抽屉 ═══════════
+const styleDrawerVisible = ref(false)
 
 // ═══════════ 响应式：窄屏时侧栏折叠为图标模式 ═══════════
 const isMobile = ref(false)
@@ -159,6 +163,17 @@ function handleUserCommand(cmd: string | number | object) {
         </div>
 
         <div class="topbar-right">
+          <!-- 外观设置 -->
+          <el-button
+            text
+            circle
+            class="theme-btn"
+            title="外观设置"
+            @click="styleDrawerVisible = true"
+          >
+            <el-icon :size="18"><Brush /></el-icon>
+          </el-button>
+
           <!-- 主题切换 -->
           <el-button
             text
@@ -202,6 +217,9 @@ function handleUserCommand(cmd: string | number | object) {
         <RouterView />
       </el-main>
     </el-container>
+
+    <!-- 外观设置抽屉 -->
+    <StyleSettingsDrawer v-if="styleDrawerVisible" @close="styleDrawerVisible = false" />
   </el-container>
 </template>
 

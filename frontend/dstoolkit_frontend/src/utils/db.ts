@@ -4,7 +4,7 @@ import { request } from '@/utils/request'
 import type { ParsedConversation, ParsedMessage, DeepseekConfig } from '@/types'
 
 const DB_NAME = 'dstoolkit_idb'
-const DB_VERSION = 3
+const DB_VERSION = 4
 
 let dbPromise: Promise<IDBPDatabase> | null = null
 function getDB() {
@@ -43,10 +43,32 @@ function getDB() {
             }
           }
         }
+        // v4: 样式设置存储（自定义壁纸 Blob 等大二进制，localStorage 放不下）。
+        if (oldVersion < 4) {
+          if (!db.objectStoreNames.contains('style')) {
+            db.createObjectStore('style')
+          }
+        }
       },
     })
   }
   return dbPromise
+}
+
+/** 样式相关二进制存取（自定义壁纸等），key-value 形式。 */
+export async function saveStyleValue(key: string, value: unknown) {
+  const db = await getDB()
+  await db.put('style', value, key)
+}
+
+export async function loadStyleValue<T = unknown>(key: string): Promise<T | undefined> {
+  const db = await getDB()
+  return (await db.get('style', key)) as T | undefined
+}
+
+export async function deleteStyleValue(key: string) {
+  const db = await getDB()
+  await db.delete('style', key)
 }
 
 interface StoredConfig extends Omit<DeepseekConfig, 'updatedAt'> {

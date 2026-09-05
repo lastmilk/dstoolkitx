@@ -25,6 +25,7 @@ import {
 import App from './App.vue'
 import router from './router'
 import { useThemeStore } from '@/stores/theme'
+import { useStyleStore } from '@/stores/style'
 
 // 注册 ECharts 模块
 use([
@@ -55,5 +56,8 @@ app.component('VChart', ECharts)
 // 主题初始化（亮/暗）
 const themeStore = useThemeStore()
 themeStore.init()
+
+// 样式系统初始化（壁纸 / 透明度 / 字号，需在主题之后）
+useStyleStore().init()
 
 app.mount('#app')

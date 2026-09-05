@@ -1,10 +1,37 @@
 /**
  * 全局样式
  * 主题：Element Plus 原生亮/暗色（html.dark 切换，无渐变、无额外主题层）
+ * 样式系统：HarmonyOS Sans 字体 + 字号缩放 + 背景图/透明度（stores/style.ts 驱动）
  */
 
 * {
   box-sizing: border-box;
+}
+
+/* ══════════ 样式系统变量（stores/style.ts 运行时覆写） ══════════ */
+html {
+  /* 字号缩放（小 0.9 / 标准 1 / 大 1.1 / 特大 1.25） */
+  --app-font-scale: 1;
+  /* 背景图图层不透明度 */
+  --app-wallpaper-opacity: 1;
+  /* 背景图模糊半径 */
+  --app-wallpaper-blur: 0px;
+  /* 控件表面不透明度 */
+  --app-surface-alpha: 1;
+  /* EP 字体变量按缩放系数联动（声明在 EP css-vars 之后，后者被覆盖） */
+  --el-font-size-extra-small: calc(12px * var(--app-font-scale));
+  --el-font-size-small: calc(12px * var(--app-font-scale));
+  --el-font-size-base: calc(14px * var(--app-font-scale));
+  --el-font-size-medium: calc(14px * var(--app-font-scale));
+  --el-font-size-large: calc(18px * var(--app-font-scale));
+}
+
+/* 暗色模式：弱化容器/分隔线描边（EP 默认深灰实线在磨砂半透明容器上过于突兀；
+   改为低透明度白色细线，输入框等 --el-border-color 不受影响仍保持清晰） */
+html.dark {
+  --el-border-color-light: rgba(255, 255, 255, 0.08);
+  --el-border-color-lighter: rgba(255, 255, 255, 0.06);
+  --el-border-color-extra-light: rgba(255, 255, 255, 0.05);
 }
 
 html,
@@ -16,8 +43,10 @@ body {
 
 body {
   font-family:
+    'HarmonyOS_Regular', 'HarmonyOS Sans SC',
     'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', Arial, sans-serif;
+  font-size: calc(14px * var(--app-font-scale));
   background-color: var(--el-bg-color);
   color: var(--el-text-color-primary);
   -webkit-font-smoothing: antialiased;
@@ -25,6 +54,40 @@ body {
 
 #app {
   height: 100%;
+}
+
+/* ══════════ 背景图图层（App.vue 渲染，位于全部内容之下） ══════════ */
+.app-wallpaper {
+  position: fixed;
+  /* 模糊时边缘会羽化出透明边，放大一层补偿 */
+  inset: calc(-1 * var(--app-wallpaper-blur) * 2);
+  z-index: -1;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: var(--app-wallpaper-opacity);
+  filter: blur(var(--app-wallpaper-blur));
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+/* ══════════ 粒子效果图层（前景层：飘在内容之上、弹窗之下；pointer-events:none 不拦截交互） ══════════ */
+.particle-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  pointer-events: none;
+}
+
+/* 壁纸激活时：主要表面加轻度磨砂（模糊值克制，避免整体发糊；配合 --app-surface-alpha 半透明底色） */
+html.has-wallpaper .layout-aside,
+html.has-wallpaper .layout-topbar,
+html.has-wallpaper .layout-main,
+html.has-wallpaper .el-card,
+html.has-wallpaper .el-dialog,
+html.has-wallpaper .el-drawer {
+  backdrop-filter: blur(7px) saturate(1.15);
+  -webkit-backdrop-filter: blur(7px) saturate(1.15);
 }
 
 /* 页面通用容器 */
