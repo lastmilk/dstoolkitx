@@ -23,6 +23,8 @@ const router = createRouter({
         { path: '', name: 'portal-home', component: () => import('@/portal/pages/Home.vue') },
         { path: 'features', name: 'portal-features', component: () => import('@/portal/pages/Features.vue') },
         { path: 'pricing', name: 'portal-pricing', component: () => import('@/portal/pages/Pricing.vue') },
+        { path: 'agreement', name: 'portal-agreement', component: () => import('@/portal/pages/Agreement.vue') },
+        { path: 'privacy', name: 'portal-privacy', component: () => import('@/portal/pages/Privacy.vue') },
       ],
     },
     {
