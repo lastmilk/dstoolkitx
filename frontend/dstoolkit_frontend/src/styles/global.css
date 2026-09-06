@@ -39,6 +39,9 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
+  /* 移动端浏览器地址栏伸缩时避免 100vh 跳动 */
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 body {
@@ -50,6 +53,8 @@ body {
   background-color: var(--el-bg-color);
   color: var(--el-text-color-primary);
   -webkit-font-smoothing: antialiased;
+  /* 移动端横向溢出保护 */
+  overflow-x: hidden;
 }
 
 #app {
@@ -147,4 +152,102 @@ html.has-wallpaper .el-drawer {
 
 .sweet-btn-cancel:hover {
   background-color: var(--el-fill-color-dark);
+}
+
+/* ══════════ 全局移动端适配 ══════════ */
+
+/* 页面容器内边距：移动端收窄 */
+@media (max-width: 768px) {
+  .page {
+    padding: 12px;
+  }
+}
+
+/* el-dialog 固定宽度在小屏自适应（避免 480/560/720px 等弹窗溢出） */
+@media (max-width: 768px) {
+  .el-dialog {
+    width: 92% !important;
+    max-width: 92vw !important;
+    margin: 4vh auto !important;
+  }
+  .el-dialog .el-dialog__body {
+    padding: 16px 16px 20px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  .el-dialog .el-dialog__header {
+    padding: 16px;
+    margin-right: 0;
+  }
+}
+@media (max-width: 480px) {
+  .el-dialog {
+    width: 94% !important;
+    max-width: 94vw !important;
+  }
+  .el-dialog .el-dialog__footer {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+  .el-dialog .el-dialog__footer .el-button {
+    margin-left: 0;
+    flex: 1;
+  }
+}
+
+/* 表格在小屏横向滚动 + 紧凑化 */
+@media (max-width: 768px) {
+  .el-table {
+    font-size: 12px;
+  }
+  .el-table th.el-table__cell,
+  .el-table td.el-table__cell {
+    padding: 8px 0;
+  }
+  .el-table .cell {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+/* 描述列表在小屏单列 */
+@media (max-width: 768px) {
+  .el-descriptions:not(.is-vertical) .el-descriptions__body .el-descriptions__table {
+    table-layout: auto;
+  }
+}
+
+/* 内联表单在小屏堆叠 */
+@media (max-width: 768px) {
+  .el-form--inline .el-form-item {
+    display: flex;
+    margin-right: 0;
+    margin-bottom: 12px;
+  }
+  .el-form--inline .el-form-item__content {
+    flex: 1;
+  }
+}
+
+/* SweetAlert2 移动端紧凑 */
+@media (max-width: 480px) {
+  .sweet-popup {
+    width: 92vw !important;
+    padding: 18px 16px !important;
+  }
+  .sweet-popup .swal2-title {
+    font-size: 16px !important;
+  }
+  .sweet-popup .swal2-html-container {
+    font-size: 13px !important;
+  }
+  .sweet-popup .swal2-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .sweet-popup .swal2-actions .swal2-confirm,
+  .sweet-popup .swal2-actions .swal2-cancel {
+    width: 100%;
+    margin: 4px 0 !important;
+  }
 }

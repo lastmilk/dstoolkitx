@@ -11,7 +11,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   Upload, Search, DataAnalysis, Switch as SwitchIcon, Wallet, Medal, Grid, User,
   Sunny, Moon, SwitchButton, Cloudy, CircleClose, Brush,
-  Link, ChatDotRound, Cpu, EditPen, Setting,
+  Link, ChatDotRound, Cpu, EditPen, Setting, Menu,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -29,10 +29,12 @@ const themeStore = useThemeStore()
 // ═══════════ 外观设置抽屉 ═══════════
 const styleDrawerVisible = ref(false)
 
-// ═══════════ 响应式：窄屏时侧栏折叠为图标模式 ═══════════
+// ═══════════ 响应式：窄屏时侧栏改为抽屉式 ═══════════
 const isMobile = ref(false)
+const mobileSidebarVisible = ref(false)
 function checkViewport() {
   isMobile.value = window.innerWidth < 768
+  if (!isMobile.value) mobileSidebarVisible.value = false
 }
 onMounted(() => {
   checkViewport()
@@ -41,6 +43,14 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', checkViewport)
 })
+
+function closeMobileSidebar() {
+  mobileSidebarVisible.value = false
+}
+function navigateMenu(path: string) {
+  router.push(path)
+  closeMobileSidebar()
+}
 
 // 路由切换后无需额外处理（el-menu router 模式自动高亮）
 
@@ -116,14 +126,12 @@ function handleUserCommand(cmd: string | number | object) {
 
 <template>
   <el-container class="main-layout">
-    <!-- ══════════ 侧边栏 ══════════ -->
-    <el-aside :width="isMobile ? '64px' : '220px'" class="layout-aside">
+    <!-- ══════════ 侧边栏（桌面端常驻） ══════════ -->
+    <el-aside v-if="!isMobile" width="220px" class="layout-aside">
       <el-menu
         :default-active="activePath"
         class="side-menu"
         router
-        :collapse="isMobile"
-        :collapse-transition="false"
       >
         <el-menu-item v-for="item in menuItems" :key="item.path" :index="item.path">
           <el-icon><component :is="item.icon" /></el-icon>
@@ -132,7 +140,7 @@ function handleUserCommand(cmd: string | number | object) {
       </el-menu>
 
       <!-- 侧栏底部：云端同步 + 用户卡片 -->
-      <div v-if="!isMobile" class="aside-footer">
+      <div class="aside-footer">
         <div class="cloud-row">
           <el-icon :size="16" class="cloud-icon">
             <Cloudy v-if="auth.cloudSyncEnabled" />
@@ -157,10 +165,70 @@ function handleUserCommand(cmd: string | number | object) {
       </div>
     </el-aside>
 
+    <!-- ══════════ 移动端抽屉侧栏 ══════════ -->
+    <el-drawer
+      v-if="isMobile"
+      v-model="mobileSidebarVisible"
+      :with-header="false"
+      direction="ltr"
+      size="260px"
+      class="mobile-side-drawer"
+    >
+      <div class="mobile-drawer-inner">
+        <div class="mobile-drawer-brand">
+          <img :src="logo" alt="Logo" class="mobile-drawer-logo">
+          <span class="mobile-drawer-name">DSToolKit</span>
+        </div>
+        <el-menu
+          :default-active="activePath"
+          class="side-menu"
+          @select="navigateMenu"
+        >
+          <el-menu-item v-for="item in menuItems" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <template #title>{{ item.label }}</template>
+          </el-menu-item>
+        </el-menu>
+        <div class="aside-footer">
+          <div class="cloud-row">
+            <el-icon :size="16" class="cloud-icon">
+              <Cloudy v-if="auth.cloudSyncEnabled" />
+              <CircleClose v-else />
+            </el-icon>
+            <span class="cloud-label">{{ auth.cloudSyncEnabled ? '云端同步' : '离线模式' }}</span>
+            <el-switch
+              :model-value="auth.cloudSyncEnabled"
+              size="small"
+              @update:model-value="onCloudSync"
+            />
+          </div>
+          <div class="aside-user" @click="navigateMenu('/profile')">
+            <el-avatar :size="32" class="aside-avatar">
+              {{ (auth.user?.username || 'U').charAt(0).toUpperCase() }}
+            </el-avatar>
+            <div class="aside-user-info">
+              <div class="aside-user-name">{{ auth.user?.username || '用户' }}</div>
+              <div class="aside-user-role">{{ auth.isAdmin ? '管理员' : '用户' }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-drawer>
+
     <el-container class="layout-main-container">
       <!-- ══════════ 顶栏 ══════════ -->
       <el-header class="layout-topbar" height="60px">
         <div class="topbar-left">
+          <el-button
+            v-if="isMobile"
+            text
+            circle
+            class="hamburger-btn"
+            aria-label="打开菜单"
+            @click="mobileSidebarVisible = true"
+          >
+            <el-icon :size="20"><Menu /></el-icon>
+          </el-button>
           <img :src="logo" alt="Logo" class="topbar-logo">
           <div class="topbar-brand">
             <span class="brand-name">Deepseek Toolkit</span>
@@ -238,6 +306,7 @@ function handleUserCommand(cmd: string | number | object) {
 /* ══════════ 布局骨架 ══════════ */
 .main-layout {
   height: 100vh;
+  height: 100dvh;
   width: 100%;
   overflow: hidden;
 }
@@ -261,8 +330,6 @@ function handleUserCommand(cmd: string | number | object) {
   overflow-x: hidden;
   border-right: none;
   padding: 8px;
-}
-.side-menu:not(.el-menu--collapse) {
   width: 100%;
 }
 .side-menu :deep(.el-menu-item) {
@@ -451,7 +518,40 @@ function handleUserCommand(cmd: string | number | object) {
   background: var(--el-bg-color-page);
 }
 
+/* ══════════ 移动端抽屉 ══════════ */
+:global(.mobile-side-drawer) .el-drawer__body {
+  padding: 0;
+}
+.mobile-drawer-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.mobile-drawer-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--el-border-color-light);
+  flex-shrink: 0;
+}
+.mobile-drawer-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.mobile-drawer-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+}
+
 /* ══════════ 窄屏微调 ══════════ */
+.hamburger-btn {
+  color: var(--el-text-color-primary);
+  padding: 6px;
+}
 @media (max-width: 768px) {
   .brand-tag,
   .page-subtitle {
@@ -460,8 +560,32 @@ function handleUserCommand(cmd: string | number | object) {
   .user-name {
     display: none;
   }
+  .topbar-left .el-divider {
+    display: none;
+  }
   .layout-topbar {
-    padding: 0 12px;
+    padding: 0 10px;
+  }
+  .layout-main {
+    padding: 12px;
+  }
+  .topbar-left {
+    gap: 8px;
+  }
+  .page-title {
+    font-size: 14px;
+  }
+}
+@media (max-width: 480px) {
+  .topbar-logo {
+    width: 28px;
+    height: 28px;
+  }
+  .brand-name {
+    font-size: 14px;
+  }
+  .theme-btn {
+    padding: 6px;
   }
 }
 </style>
