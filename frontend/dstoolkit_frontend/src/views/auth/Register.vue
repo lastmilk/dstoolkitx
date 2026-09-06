@@ -10,6 +10,13 @@ import { ElMessage } from 'element-plus'
 const auth = useAuthStore()
 const router = useRouter()
 
+const agreed = ref(false)
+
+function openLegal(path: string) {
+  const { href } = router.resolve(path)
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
+
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const form = reactive({
@@ -44,6 +51,10 @@ const rules: FormRules = {
 
 async function onSubmit() {
   if (loading.value) return
+  if (!agreed.value) {
+    ElMessage.warning('请先阅读并同意《用户协议》和《隐私政策》')
+    return
+  }
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   loading.value = true
@@ -153,7 +164,16 @@ async function onSubmit() {
         <el-icon class="btn-suffix"><ArrowRight /></el-icon>
       </el-button>
 
-      <p class="foot-tip">注册即表示同意服务条款，你的对话数据不会被上传给任何第三方。<br />注册后绑定手机号即可解锁云端同步</p>
+      <div class="agreement-row">
+        <el-checkbox v-model="agreed" size="small">
+          我已阅读并同意
+          <a class="legal-link" @click.prevent="openLegal('/portal/agreement')">《用户协议》</a>
+          和
+          <a class="legal-link" @click.prevent="openLegal('/portal/privacy')">《隐私政策》</a>
+        </el-checkbox>
+      </div>
+
+      <p class="foot-tip">你的对话数据不会被上传给任何第三方。<br />注册后绑定手机号即可解锁云端同步</p>
     </el-card>
   </div>
 </template>
@@ -237,10 +257,25 @@ async function onSubmit() {
 }
 
 .foot-tip {
-  margin: 16px 0 0;
+  margin: 12px 0 0;
   text-align: center;
   font-size: 12px;
   line-height: 1.6;
   color: var(--el-text-color-secondary);
+}
+
+.agreement-row {
+  margin: 16px 4px 0;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  line-height: 1.6;
+}
+.legal-link {
+  color: var(--el-color-primary);
+  cursor: pointer;
+  text-decoration: none;
+}
+.legal-link:hover {
+  text-decoration: underline;
 }
 </style>

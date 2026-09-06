@@ -12,6 +12,12 @@ const router = useRouter()
 const route = useRoute()
 
 const activeTab = ref('sms')
+const agreed = ref(false)
+
+function openLegal(path: string) {
+  const { href } = router.resolve(path)
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
 
 // ── 验证码登录 ─────────────────────────────────────────────
 
@@ -58,6 +64,10 @@ async function onSendCode() {
 
 async function onSmsLogin() {
   if (smsLoading.value) return
+  if (!agreed.value) {
+    ElMessage.warning('请先阅读并同意《用户协议》和《隐私政策》')
+    return
+  }
   if (!PHONE_RE.test(phone.value.trim())) {
     ElMessage.warning('请输入正确的手机号')
     return
@@ -94,6 +104,10 @@ const rules: FormRules = {
 
 async function onSubmit() {
   if (loading.value) return
+  if (!agreed.value) {
+    ElMessage.warning('请先阅读并同意《用户协议》和《隐私政策》')
+    return
+  }
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   loading.value = true
@@ -210,6 +224,15 @@ async function onSubmit() {
         </el-tab-pane>
       </el-tabs>
 
+      <div class="agreement-row">
+        <el-checkbox v-model="agreed" size="small">
+          我已阅读并同意
+          <a class="legal-link" @click.prevent="openLegal('/portal/agreement')">《用户协议》</a>
+          和
+          <a class="legal-link" @click.prevent="openLegal('/portal/privacy')">《隐私政策》</a>
+        </el-checkbox>
+      </div>
+
       <el-divider>
         <span class="divider-text">还没有账号？</span>
       </el-divider>
@@ -297,6 +320,21 @@ async function onSubmit() {
   text-align: center;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.agreement-row {
+  margin: 16px 4px 4px;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  line-height: 1.6;
+}
+.legal-link {
+  color: var(--el-color-primary);
+  cursor: pointer;
+  text-decoration: none;
+}
+.legal-link:hover {
+  text-decoration: underline;
 }
 
 .divider-text {

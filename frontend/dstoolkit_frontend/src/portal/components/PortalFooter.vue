@@ -38,6 +38,11 @@ const resourceLinks: FooterLink[] = [
   { label: '联系我们', path: '/portal/pricing' },
 ]
 
+const legalLinks: FooterLink[] = [
+  { label: '用户协议', path: '/portal/agreement' },
+  { label: '隐私政策', path: '/portal/privacy' },
+]
+
 const linkGroups: { title: string; links: FooterLink[] }[] = [
   { title: '快速链接', links: quickLinks },
   { title: '产品', links: productLinks },
@@ -73,6 +78,16 @@ const linkGroups: { title: string; links: FooterLink[] }[] = [
 
       <div class="footer-bottom">
         <div class="copyright">© {{ year }} Deepseek Toolkit. All rights reserved.</div>
+        <div class="legal-links">
+          <a
+            v-for="link in legalLinks"
+            :key="link.path"
+            class="legal-link"
+            @click.prevent="router.push(link.path)"
+          >
+            {{ link.label }}
+          </a>
+        </div>
       </div>
     </div>
   </footer>
@@ -144,11 +159,30 @@ const linkGroups: { title: string; links: FooterLink[] }[] = [
 .footer-bottom {
   padding-top: 20px;
   border-top: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
 }
 .copyright {
   font-size: 12.5px;
   color: var(--el-text-color-secondary);
   text-align: center;
+}
+.legal-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.legal-link {
+  font-size: 12.5px;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.legal-link:hover {
+  color: var(--el-color-primary);
 }
 
 @media (max-width: 960px) {
