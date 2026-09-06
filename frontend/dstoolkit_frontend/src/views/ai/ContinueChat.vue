@@ -190,6 +190,7 @@ onMounted(loadList)
 .continue-chat-page {
   display: flex;
   height: calc(100vh - 140px);
+  height: calc(100dvh - 140px);
   gap: 16px;
 }
 .sidebar {
@@ -305,13 +306,33 @@ onMounted(loadList)
   .continue-chat-page {
     flex-direction: column;
     height: auto;
+    gap: 12px;
   }
   .sidebar {
     width: 100%;
-    max-height: 200px;
+    max-height: 180px;
   }
   .chat-area {
-    height: 60vh;
+    height: 62vh;
+    height: 62dvh;
+  }
+  .messages {
+    padding: 12px;
+  }
+  .msg-bubble {
+    max-width: 88%;
+  }
+  .input-area {
+    padding: 10px 12px;
+  }
+}
+@media (max-width: 480px) {
+  .input-area {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .input-area .el-button {
+    width: 100%;
   }
 }
 </style>

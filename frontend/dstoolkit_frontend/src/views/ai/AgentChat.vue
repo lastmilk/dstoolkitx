@@ -158,7 +158,7 @@ onMounted(loadList)
     <div class="chat-area">
       <div class="chat-header">
         <span class="chat-title">{{ activeConv?.title || '选择或新建 Agent 对话' }}</span>
-        <el-select v-model="model" size="small" style="width: 160px">
+        <el-select v-model="model" size="small" class="model-select">
           <el-option label="Step-1o" value="step-1o" />
           <el-option label="Step-1o Flash" value="step-1o-flash" />
           <el-option label="Step-1v" value="step-1v" />
@@ -206,6 +206,7 @@ onMounted(loadList)
 .agent-page {
   display: flex;
   height: calc(100vh - 140px);
+  height: calc(100dvh - 140px);
   gap: 16px;
 }
 .sidebar {
@@ -274,9 +275,19 @@ onMounted(loadList)
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 .chat-title {
   font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.model-select {
+  width: 160px;
+  flex-shrink: 0;
 }
 .messages {
   flex: 1;
@@ -325,13 +336,48 @@ onMounted(loadList)
   .agent-page {
     flex-direction: column;
     height: auto;
+    gap: 12px;
   }
   .sidebar {
     width: 100%;
-    max-height: 200px;
+    max-height: 180px;
   }
   .chat-area {
-    height: 60vh;
+    height: 62vh;
+    height: 62dvh;
+  }
+  .chat-header {
+    padding: 10px 12px;
+  }
+  .model-select {
+    width: 130px;
+  }
+  .messages {
+    padding: 12px;
+  }
+  .msg-bubble {
+    max-width: 88%;
+  }
+  .input-area {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+}
+@media (max-width: 480px) {
+  .chat-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .model-select {
+    width: 100%;
+  }
+  .input-area {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .input-area .el-button {
+    width: 100%;
   }
 }
 </style>

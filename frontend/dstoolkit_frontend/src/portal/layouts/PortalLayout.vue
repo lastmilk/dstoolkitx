@@ -22,6 +22,7 @@ import PortalFooter from '@/portal/components/PortalFooter.vue'
 <style scoped>
 .portal-layout {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   width: 100%;

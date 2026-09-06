@@ -812,6 +812,7 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 12px;
   height: calc(100vh - 100px); /* 60px 顶栏 + 40px el-main 上下内边距 */
+  height: calc(100dvh - 100px);
   min-height: 520px;
 }
 
