@@ -58,6 +58,12 @@ const router = createRouter({
         { path: 'market', name: 'market', component: () => import('@/views/market/Market.vue') },
         { path: 'profile', name: 'profile', component: () => import('@/views/profile/Profile.vue') },
         { path: 'bind-phone', name: 'bind-phone', component: () => import('@/views/auth/BindPhone.vue') },
+        // ═══════════ AI 知识库扩展 ═══════════
+        { path: 'import', name: 'import', component: () => import('@/views/ai/Import.vue') },
+        { path: 'continue-chat', name: 'continue-chat', component: () => import('@/views/ai/ContinueChat.vue') },
+        { path: 'agent', name: 'agent', component: () => import('@/views/ai/AgentChat.vue') },
+        { path: 'test-paper', name: 'test-paper', component: () => import('@/views/ai/TestPaper.vue') },
+        { path: 'agent-tools', name: 'agent-tools', component: () => import('@/views/ai/AgentTools.vue') },
       ],
     },
   ],

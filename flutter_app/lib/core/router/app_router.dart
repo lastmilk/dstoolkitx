@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/ai/import_page.dart';
+import '../../features/ai/continue_chat_page.dart';
+import '../../features/ai/test_paper_page.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/auth/login_page.dart';
 import '../../features/conversation/detail/conversation_detail_page.dart';
@@ -50,14 +53,28 @@ final routerProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
-              path: '/stats',
-              builder: (context, state) => const StatsPage(),
+              path: '/ai',
+              builder: (context, state) => const ContinueChatPage(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/test-paper',
+              builder: (context, state) => const TestPaperPage(),
             ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/profile',
               builder: (context, state) => const ProfilePage(),
+            ),
+            GoRoute(
+              path: '/stats',
+              builder: (context, state) => const StatsPage(),
+            ),
+            GoRoute(
+              path: '/import',
+              builder: (context, state) => const ImportPage(),
             ),
           ]),
         ],

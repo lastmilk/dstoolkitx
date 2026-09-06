@@ -426,3 +426,247 @@ class GitKeyCreated {
         containerId: (json['containerId'] as num?)?.toInt(),
       );
 }
+
+// ═══════════ AI 知识库扩展 ═══════════
+
+class UnifiedConversation {
+  const UnifiedConversation({
+    required this.id,
+    required this.title,
+    required this.source,
+    this.sourceUrl,
+    this.sourceConvId,
+    this.model,
+    required this.turnCount,
+    required this.createdAt,
+    required this.updatedAt,
+    this.messageCount,
+  });
+
+  final int id;
+  final String title;
+  final String source;
+  final String? sourceUrl;
+  final String? sourceConvId;
+  final String? model;
+  final int turnCount;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final int? messageCount;
+
+  factory UnifiedConversation.fromJson(Map<String, dynamic> json) =>
+      UnifiedConversation(
+        id: (json['id'] as num).toInt(),
+        title: json['title'] as String? ?? '',
+        source: json['source'] as String? ?? '',
+        sourceUrl: json['sourceUrl'] as String?,
+        sourceConvId: json['sourceConvId'] as String?,
+        model: json['model'] as String?,
+        turnCount: (json['turnCount'] as num?)?.toInt() ?? 0,
+        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+        updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
+        messageCount:
+            ((json['_count'] as Map<String, dynamic>?)?['messages'] as num?)
+                    ?.toInt() ??
+                0,
+      );
+}
+
+class UnifiedMessage {
+  const UnifiedMessage({
+    required this.id,
+    required this.conversationId,
+    required this.role,
+    required this.content,
+    this.model,
+    this.toolName,
+    this.toolCallId,
+    required this.insertedAt,
+  });
+
+  final int id;
+  final int conversationId;
+  final String role;
+  final String content;
+  final String? model;
+  final String? toolName;
+  final String? toolCallId;
+  final DateTime? insertedAt;
+
+  factory UnifiedMessage.fromJson(Map<String, dynamic> json) => UnifiedMessage(
+        id: (json['id'] as num).toInt(),
+        conversationId: (json['conversationId'] as num).toInt(),
+        role: json['role'] as String? ?? 'USER',
+        content: json['content'] as String? ?? '',
+        model: json['model'] as String?,
+        toolName: json['toolName'] as String?,
+        toolCallId: json['toolCallId'] as String?,
+        insertedAt: DateTime.tryParse(json['insertedAt'] as String? ?? ''),
+      );
+}
+
+class TestPaperLite {
+  const TestPaperLite({
+    required this.id,
+    required this.title,
+    this.description,
+    this.subject,
+    required this.difficulty,
+    required this.questionCount,
+    required this.totalScore,
+    required this.status,
+    required this.createdAt,
+  });
+
+  final int id;
+  final String title;
+  final String? description;
+  final String? subject;
+  final String difficulty;
+  final int questionCount;
+  final int totalScore;
+  final String status;
+  final DateTime? createdAt;
+
+  factory TestPaperLite.fromJson(Map<String, dynamic> json) => TestPaperLite(
+        id: (json['id'] as num).toInt(),
+        title: json['title'] as String? ?? '',
+        description: json['description'] as String?,
+        subject: json['subject'] as String?,
+        difficulty: json['difficulty'] as String? ?? 'medium',
+        questionCount: (json['questionCount'] as num?)?.toInt() ?? 0,
+        totalScore: (json['totalScore'] as num?)?.toInt() ?? 0,
+        status: json['status'] as String? ?? 'READY',
+        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+      );
+}
+
+class TestPaperQuestion {
+  const TestPaperQuestion({
+    required this.id,
+    required this.orderIndex,
+    required this.type,
+    required this.content,
+    this.options,
+    required this.answer,
+    this.explanation,
+    required this.score,
+  });
+
+  final int id;
+  final int orderIndex;
+  final String type;
+  final String content;
+  final List<dynamic>? options;
+  final dynamic answer;
+  final String? explanation;
+  final int score;
+
+  factory TestPaperQuestion.fromJson(Map<String, dynamic> json) =>
+      TestPaperQuestion(
+        id: (json['id'] as num).toInt(),
+        orderIndex: (json['orderIndex'] as num?)?.toInt() ?? 0,
+        type: json['type'] as String? ?? 'SHORT_ANSWER',
+        content: json['content'] as String? ?? '',
+        options: json['options'] as List<dynamic>?,
+        answer: json['answer'],
+        explanation: json['explanation'] as String?,
+        score: (json['score'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class TestPaperDetail {
+  const TestPaperDetail({
+    required this.id,
+    required this.title,
+    this.description,
+    this.subject,
+    required this.difficulty,
+    required this.questionCount,
+    required this.totalScore,
+    required this.status,
+    required this.questions,
+  });
+
+  final int id;
+  final String title;
+  final String? description;
+  final String? subject;
+  final String difficulty;
+  final int questionCount;
+  final int totalScore;
+  final String status;
+  final List<TestPaperQuestion> questions;
+
+  factory TestPaperDetail.fromJson(Map<String, dynamic> json) =>
+      TestPaperDetail(
+        id: (json['id'] as num).toInt(),
+        title: json['title'] as String? ?? '',
+        description: json['description'] as String?,
+        subject: json['subject'] as String?,
+        difficulty: json['difficulty'] as String? ?? 'medium',
+        questionCount: (json['questionCount'] as num?)?.toInt() ?? 0,
+        totalScore: (json['totalScore'] as num?)?.toInt() ?? 0,
+        status: json['status'] as String? ?? 'READY',
+        questions: (json['questions'] as List<dynamic>? ?? [])
+            .map((e) => TestPaperQuestion.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class Skill {
+  const Skill({
+    required this.id,
+    required this.name,
+    this.description,
+    required this.content,
+    this.tags,
+    required this.enabled,
+  });
+
+  final int id;
+  final String name;
+  final String? description;
+  final String content;
+  final List<dynamic>? tags;
+  final bool enabled;
+
+  factory Skill.fromJson(Map<String, dynamic> json) => Skill(
+        id: (json['id'] as num).toInt(),
+        name: json['name'] as String? ?? '',
+        description: json['description'] as String?,
+        content: json['content'] as String? ?? '',
+        tags: json['tags'] as List<dynamic>?,
+        enabled: json['enabled'] as bool? ?? true,
+      );
+}
+
+class McpServerModel {
+  const McpServerModel({
+    required this.id,
+    required this.name,
+    this.description,
+    required this.transport,
+    this.url,
+    this.command,
+    required this.enabled,
+  });
+
+  final int id;
+  final String name;
+  final String? description;
+  final String transport;
+  final String? url;
+  final String? command;
+  final bool enabled;
+
+  factory McpServerModel.fromJson(Map<String, dynamic> json) => McpServerModel(
+        id: (json['id'] as num).toInt(),
+        name: json['name'] as String? ?? '',
+        description: json['description'] as String?,
+        transport: json['transport'] as String? ?? 'HTTP',
+        url: json['url'] as String?,
+        command: json['command'] as String?,
+        enabled: json['enabled'] as bool? ?? true,
+      );
+}

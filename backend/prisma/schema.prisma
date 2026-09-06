@@ -19,6 +19,48 @@ enum MsgRole {
   ASSISTANT
 }
 
+// ═══════════ AI 知识库扩展 ═══════════
+
+// 统一对话来源
+enum ConversationSource {
+  DEEPSEEK_SHARE   // DeepSeek 分享链接增量导入
+  OPENAI_SHARE     // OpenAI/ChatGPT 分享链接增量导入
+  DEEPSEEK_JSON    // DeepSeek 消息 JSON 全量导入
+  OPENAI_JSON      // OpenAI 消息 JSON 全量导入
+  CONTINUED        // 续聊生成（DeepSeek 内置）
+  AGENT            // Agent 续聊生成（StepFun 内置）
+}
+
+// 统一消息角色
+enum UnifiedMsgRole {
+  SYSTEM
+  USER
+  ASSISTANT
+  TOOL
+}
+
+// 试卷题目类型
+enum QuestionType {
+  SINGLE_CHOICE     // 单选题
+  MULTIPLE_CHOICE   // 多选题
+  TRUE_FALSE        // 判断题
+  FILL_BLANK        // 填空题
+  SHORT_ANSWER      // 简答题
+}
+
+// 试卷状态
+enum TestPaperStatus {
+  GENERATING
+  READY
+  FAILED
+}
+
+// MCP 传输类型
+enum McpTransport {
+  HTTP
+  STDIO
+}
+
 // ═══════════ 订阅等级 ═══════════
 enum Tier {
   FREE
@@ -100,6 +142,12 @@ model User {
   shares           Share[]
   oauthCodes       OAuthCode[]
   oauthTokens      OAuthToken[]
+
+  // AI 知识库扩展
+  unifiedConversations UnifiedConversation[]
+  testPapers       TestPaper[]
+  skills           Skill[]
+  mcpServers       McpServer[]
 
   @@index([role])
   @@index([tier])
@@ -457,4 +505,121 @@ model Share {
   @@index([userId])
   @@index([configId])
   @@index([createdAt])
+}
+
+// ═══════════ AI 知识库：统一对话（跨平台导入 + 续聊 + Agent） ═══════════
+model UnifiedConversation {
+  id          Int                @id @default(autoincrement())
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  title       String             @db.Text
+  source      ConversationSource
+  sourceUrl   String?            @db.Text  // 分享链接原始 URL（导入来源）
+  sourceConvId String?           // 原始平台会话 ID
+  model       String?            // 续聊/Agent 所用模型
+  turnCount   Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  messages    UnifiedMessage[]
+
+  @@index([userId])
+  @@index([source])
+  @@index([createdAt])
+}
+
+model UnifiedMessage {
+  id              Int               @id @default(autoincrement())
+  conversation    UnifiedConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId  Int
+  role            UnifiedMsgRole
+  content         String            @db.LongText
+  model           String?
+  toolName        String?           // TOOL 角色时的工具名
+  toolCallId      String?           // tool_call 的 id
+  toolCalls       Json?             // assistant 发起的 tool_calls（OpenAI 兼容格式）
+  insertedAt      DateTime          @default(now())
+
+  @@index([conversationId])
+  @@index([role])
+}
+
+// ═══════════ AI 记忆：试卷与题目 ═══════════
+model TestPaper {
+  id              Int               @id @default(autoincrement())
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  title           String            @db.Text
+  description     String?           @db.Text
+  subject         String?           // 学科/主题
+  difficulty      String            @default("medium") // easy / medium / hard
+  questionCount   Int               @default(0)
+  totalScore      Int               @default(0)
+  status          TestPaperStatus   @default(GENERATING)
+  // 生成试卷时检索的知识范围：对话 ID 列表或关键词
+  scope           Json?             // { conversationIds?: number[], keywords?: string[] }
+  errorMessage    String?           @db.Text
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  questions       TestPaperQuestion[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model TestPaperQuestion {
+  id              Int               @id @default(autoincrement())
+  testPaper       TestPaper         @relation(fields: [testPaperId], references: [id], onDelete: Cascade)
+  testPaperId     Int
+  orderIndex      Int               @default(0)
+  type            QuestionType
+  content         String            @db.Text   // 题干
+  options         Json?             // 选择题选项 [{key, text}]
+  answer          Json              // 参考答案（单选: "A"；多选: ["A","C"]；判断: true；填空: ["答案1","答案2"]；简答: "..."）
+  explanation     String?           @db.Text   // 答案解析
+  score           Int               @default(0)
+  // 关联的知识来源（可选）：来自哪段对话/哪个知识点
+  sourceConvId    Int?
+  sourceSnippet   String?           @db.Text
+
+  @@index([testPaperId])
+  @@index([type])
+}
+
+// ═══════════ Agent：Skill.md 技能库 ═══════════
+model Skill {
+  id              Int               @id @default(autoincrement())
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  name            String
+  description     String?           @db.Text
+  content         String            @db.LongText  // Skill.md 完整内容
+  tags            Json?             // 标签数组
+  enabled         Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// ═══════════ Agent：MCP 服务器配置 ═══════════
+model McpServer {
+  id              Int               @id @default(autoincrement())
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  name            String
+  description     String?           @db.Text
+  transport       McpTransport      @default(HTTP)
+  url             String?           @db.Text  // HTTP 模式的 endpoint
+  command         String?           // STDIO 模式的启动命令
+  args            Json?             // STDIO 模式的启动参数
+  env             Json?             // 环境变量
+  headers         Json?             // HTTP 模式的自定义头
+  enabled         Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
 }
