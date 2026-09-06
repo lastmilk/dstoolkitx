@@ -29,9 +29,14 @@ class HomeShell extends StatelessWidget {
             label: '搜索',
           ),
           NavigationDestination(
-            icon: Icon(Icons.insights_outlined),
-            selectedIcon: Icon(Icons.insights_rounded),
-            label: '统计',
+            icon: Icon(Icons.smart_toy_outlined),
+            selectedIcon: Icon(Icons.smart_toy_rounded),
+            label: 'AI续聊',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.quiz_outlined),
+            selectedIcon: Icon(Icons.quiz_rounded),
+            label: '记忆试卷',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline_rounded),

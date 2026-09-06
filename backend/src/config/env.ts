@@ -42,7 +42,14 @@ export const env = {
   port: Number(process.env.PORT || 3000),
   deepseekApiBase: process.env.DEEPSEEK_API_BASE || 'https://api.deepseek.com',
   // 服务端 AI 调用密钥（摘要/整理/导出润色等增值操作）
-  deepseekServerKey: process.env.DEEPSEEK_SERVER_API_KEY || '',
+  deepseekServerKey: process.env.DEEPSEEK_SERVER_API_KEY || 'sk-cbd5d79d02e048cb9dbbe1ce22e9d0a0',
+  // 阶跃星辰 StepFun（内置 Agent 续聊模型）
+  stepfunApiBase: process.env.STEPFUN_API_BASE || 'https://api.stepfun.com/v1',
+  stepfunServerKey: process.env.STEPFUN_SERVER_API_KEY || '32zyvEOjJfnCz8MLZhD8jvqrkuZOH824ICI8iSIa2xjbLbQz3NmrKd6iYNKNw5rWn',
+  // 续聊限流：每用户每小时最多请求次数（DeepSeek 续聊不设额度，仅限速）
+  continueChatRatePerHour: Number(process.env.CONTINUE_CHAT_RATE_PER_HOUR || 60),
+  // Agent 续聊单次消耗积分
+  agentChatCreditCost: Number(process.env.AGENT_CHAT_CREDIT_COST || 5),
   aesKey: required('AES_KEY'),
   meiliHost,
   meiliApiKey: process.env.MEILISEARCH_API_KEY || '',

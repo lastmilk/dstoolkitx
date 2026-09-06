@@ -145,3 +145,107 @@ export interface MarketEntry {
   category: string
   createdAt: string
 }
+
+// ══════════ AI 知识库扩展 ══════════
+
+export type ConversationSource =
+  | 'DEEPSEEK_SHARE'
+  | 'OPENAI_SHARE'
+  | 'DEEPSEEK_JSON'
+  | 'OPENAI_JSON'
+  | 'CONTINUED'
+  | 'AGENT'
+
+export type UnifiedMsgRole = 'SYSTEM' | 'USER' | 'ASSISTANT' | 'TOOL'
+
+export interface UnifiedMessage {
+  id: number
+  conversationId: number
+  role: UnifiedMsgRole
+  content: string
+  model?: string | null
+  toolName?: string | null
+  toolCallId?: string | null
+  insertedAt: string
+}
+
+export interface UnifiedConversation {
+  id: number
+  title: string
+  source: ConversationSource
+  sourceUrl?: string | null
+  sourceConvId?: string | null
+  model?: string | null
+  turnCount: number
+  createdAt: string
+  updatedAt: string
+  messages?: UnifiedMessage[]
+  _count?: { messages: number }
+}
+
+// ══════════ 试卷 ══════════
+
+export type QuestionType =
+  | 'SINGLE_CHOICE'
+  | 'MULTIPLE_CHOICE'
+  | 'TRUE_FALSE'
+  | 'FILL_BLANK'
+  | 'SHORT_ANSWER'
+
+export type TestPaperStatus = 'GENERATING' | 'READY' | 'FAILED'
+
+export interface TestPaperQuestion {
+  id: number
+  orderIndex: number
+  type: QuestionType
+  content: string
+  options?: Array<{ key: string; text: string }> | null
+  answer: any
+  explanation?: string | null
+  score: number
+  sourceConvId?: number | null
+  sourceSnippet?: string | null
+}
+
+export interface TestPaper {
+  id: number
+  title: string
+  description?: string | null
+  subject?: string | null
+  difficulty: string
+  questionCount: number
+  totalScore: number
+  status: TestPaperStatus
+  errorMessage?: string | null
+  createdAt: string
+  updatedAt: string
+  questions?: TestPaperQuestion[]
+}
+
+// ══════════ Skill & MCP ══════════
+
+export interface Skill {
+  id: number
+  name: string
+  description?: string | null
+  content: string
+  tags?: string[] | null
+  enabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface McpServer {
+  id: number
+  name: string
+  description?: string | null
+  transport: 'HTTP' | 'STDIO'
+  url?: string | null
+  command?: string | null
+  args?: string[] | null
+  env?: Record<string, string> | null
+  headers?: Record<string, string> | null
+  enabled: boolean
+  createdAt: string
+  updatedAt: string
+}

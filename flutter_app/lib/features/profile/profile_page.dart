@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -174,6 +175,30 @@ class ProfilePage extends ConsumerWidget {
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const GitCenterPage()),
               ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── 导入对话 ──
+            _NeuListTile(
+              icon: Icons.link_rounded,
+              title: '导入对话（分享链接 / JSON）',
+              trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+              surface: neu.surface,
+              shadowDark: neu.shadowDark,
+              shadowLight: neu.shadowLight,
+              onTap: () => context.go('/import'),
+            ),
+            const SizedBox(height: 12),
+
+            // ── 数据统计 ──
+            _NeuListTile(
+              icon: Icons.insights_rounded,
+              title: '数据统计',
+              trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+              surface: neu.surface,
+              shadowDark: neu.shadowDark,
+              shadowLight: neu.shadowLight,
+              onTap: () => context.go('/stats'),
             ),
             const SizedBox(height: 12),
 

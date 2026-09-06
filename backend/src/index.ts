@@ -26,6 +26,12 @@ import referralRoutes from './routes/referral.routes.js'
 import oauth2Routes from './routes/oauth2.routes.js'
 import gitRoutes from './routes/git.routes.js'
 import gitkeyRoutes from './routes/gitkey.routes.js'
+import importRoutes from './routes/import.routes.js'
+import continueChatRoutes from './routes/continueChat.routes.js'
+import agentRoutes from './routes/agent.routes.js'
+import testPaperRoutes from './routes/testPaper.routes.js'
+import skillsRoutes from './routes/skills.routes.js'
+import mcpRoutes from './routes/mcp.routes.js'
 import { startMirrorWorker } from './services/gitMirror.js'
 
 const app = express()
@@ -59,6 +65,14 @@ app.use('/api/summaries', summaryRoutes)
 app.use('/api/folders', folderRoutes)
 app.use('/api/referral', referralRoutes)
 app.use('/api/oauth', oauth2Routes)
+
+// ═══════════ AI 知识库扩展路由 ═══════════
+app.use('/api/import', importRoutes)
+app.use('/api/continue-chat', continueChatRoutes)
+app.use('/api/agent', agentRoutes)
+app.use('/api/test-papers', testPaperRoutes)
+app.use('/api/skills', skillsRoutes)
+app.use('/api/mcp', mcpRoutes)
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   // multer 文件大小错误
