@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -138,6 +140,29 @@ class ProfilePage extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
 
+            // ── 手机号绑定（传统注册未绑定用户：云端受限提示） ──
+            if (user != null) ...[
+              _NeuListTile(
+                icon: Icons.phone_iphone_rounded,
+                title: (user.phone?.isNotEmpty ?? false)
+                    ? '手机号 ${user.phone}'
+                    : user.needsPhoneForCloud
+                        ? '绑定手机号（绑定后可用云端同步）'
+                        : '绑定手机号',
+                trailing: (user.phone?.isNotEmpty ?? false)
+                    ? const Icon(Icons.check_circle_rounded,
+                        size: 18, color: Color(0xFF00897B))
+                    : const Icon(Icons.chevron_right_rounded, size: 20),
+                surface: neu.surface,
+                shadowDark: neu.shadowDark,
+                shadowLight: neu.shadowLight,
+                onTap: (user.phone?.isNotEmpty ?? false)
+                    ? null
+                    : () => _showBindPhoneSheet(context),
+              ),
+              const SizedBox(height: 12),
+            ],
+
             // ── Git 一体化生态：凭证 + 对话容器同步 ──
             _NeuListTile(
               icon: Icons.merge_rounded,
@@ -212,6 +237,187 @@ class ProfilePage extends ConsumerWidget {
             },
             child: const Text('退出'),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showBindPhoneSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => const Padding(
+        padding: EdgeInsets.only(bottom: 24),
+        child: _BindPhoneSheet(),
+      ),
+    );
+  }
+}
+
+/// 绑定手机号底部弹层：极验 + 短信验证码
+class _BindPhoneSheet extends ConsumerStatefulWidget {
+  const _BindPhoneSheet();
+
+  @override
+  ConsumerState<_BindPhoneSheet> createState() => _BindPhoneSheetState();
+}
+
+class _BindPhoneSheetState extends ConsumerState<_BindPhoneSheet> {
+  bool _loading = false;
+  bool _sendLoading = false;
+  int _countdown = 0;
+  Timer? _timer;
+  String? _error;
+
+  final _phoneCtrl = TextEditingController();
+  final _codeCtrl = TextEditingController();
+  static final RegExp _phoneRe = RegExp(r'^1[3-9]\d{9}$');
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _phoneCtrl.dispose();
+    _codeCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    if (_countdown > 0 || _sendLoading) return;
+    final phone = _phoneCtrl.text.trim();
+    if (!_phoneRe.hasMatch(phone)) {
+      setState(() => _error = '请输入正确的手机号');
+      return;
+    }
+    setState(() {
+      _sendLoading = true;
+      _error = null;
+    });
+    final error = await ref
+        .read(authControllerProvider.notifier)
+        .bindPhoneSendCode(phone);
+    if (!mounted) return;
+    setState(() => _sendLoading = false);
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+    _countdown = 60;
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return t.cancel();
+      setState(() => _countdown--);
+      if (_countdown <= 0) t.cancel();
+    });
+  }
+
+  Future<void> _bind() async {
+    if (_loading) return;
+    final phone = _phoneCtrl.text.trim();
+    final code = _codeCtrl.text.trim();
+    if (!_phoneRe.hasMatch(phone)) {
+      setState(() => _error = '请输入正确的手机号');
+      return;
+    }
+    if (code.isEmpty) {
+      setState(() => _error = '请输入验证码');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final error = await ref
+        .read(authControllerProvider.notifier)
+        .bindPhone(phone: phone, code: code);
+    if (!mounted) return;
+    if (error != null) {
+      setState(() {
+        _loading = false;
+        _error = error;
+      });
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          24, 20, 24, 24 + MediaQuery.of(context).viewInsets.bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '绑定手机号',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '绑定后可使用云端同步与多端协作',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.outline),
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _phoneCtrl,
+            keyboardType: TextInputType.phone,
+            maxLength: 11,
+            decoration: InputDecoration(
+              labelText: '手机号',
+              prefixIcon: const Icon(Icons.phone_android_rounded),
+              counterText: '',
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _codeCtrl,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: InputDecoration(
+              labelText: '验证码',
+              prefixIcon: const Icon(Icons.sms_outlined),
+              counterText: '',
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+              suffixIcon: TextButton(
+                onPressed: _sendLoading || _countdown > 0 ? null : _send,
+                child: Text(_countdown > 0 ? '${_countdown}s' : '获取验证码'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          FilledButton(
+            onPressed: _loading ? null : _bind,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+            ),
+            child: _loading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('绑定'),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          ],
         ],
       ),
     );

@@ -3,12 +3,14 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/api_constants.dart';
 import '../../data/api/dio_client.dart';
 import '../../data/api/oauth_api.dart';
 import '../../data/api/v1_api.dart';
+import '../../data/auth/native_auth_bridge.dart';
 import '../../data/local/token_store.dart';
 import '../../data/models/models.dart';
 
@@ -21,7 +23,8 @@ class AuthState {
   final User? user;
 
   /// 游客或已登录（可进入主界面）
-  bool get canBrowse => status == AuthStatus.guest || status == AuthStatus.loggedIn;
+  bool get canBrowse =>
+      status == AuthStatus.guest || status == AuthStatus.loggedIn;
 
   AuthState copyWith({AuthStatus? status, User? user}) => AuthState(
         status: status ?? this.status,
@@ -51,10 +54,15 @@ final dioProvider = Provider<Dio>((ref) {
 
 final v1ApiProvider = Provider<V1Api>((ref) => V1Api(ref.watch(dioProvider)));
 
+/// 原生认证桥（极验 / 阿里云一键登录）
+final nativeAuthBridgeProvider =
+    Provider<NativeAuthBridge>((_) => NativeAuthBridge());
+
 // ── Controller ────────────────────────────────────────────
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._ref) : super(const AuthState(status: AuthStatus.unknown)) {
+  AuthController(this._ref)
+      : super(const AuthState(status: AuthStatus.unknown)) {
     bootstrap();
   }
 
@@ -92,87 +100,198 @@ class AuthController extends StateNotifier<AuthState> {
     state = state.copyWith(status: AuthStatus.loggedOut);
   }
 
-  /// App 内账号密码登录：
-  /// /auth/login 拿 JWT → /oauth/authorize（PKCE）拿 code → /oauth/token 换 dstk_ 令牌
+  /// App 内账号密码登录：/auth/login（含极验二次校验）拿 JWT → 换 dstk_ 令牌
   Future<String?> loginWithPassword({
     required String username,
     required String password,
+    Map<String, String>? captcha,
   }) =>
       _passwordFlow(
         path: '/auth/login',
         username: username,
         password: password,
-        usernameTakenHint: null,
+        captcha: captcha,
       );
 
-  /// App 内注册：/auth/register 成功后直接走登录流程
+  /// App 内注册：/auth/register（含极验）成功后直接走登录流程
   Future<String?> register({
     required String username,
     required String password,
+    Map<String, String>? captcha,
   }) =>
       _passwordFlow(
         path: '/auth/register',
         username: username,
         password: password,
-        usernameTakenHint: '用户名已存在',
+        captcha: captcha,
       );
+
+  /// 发送登录/注册短信验证码（先极验）。返回 null 表示成功，否则返回错误信息
+  Future<String?> smsSend(String phone) async {
+    try {
+      final captcha = await _ref.read(nativeAuthBridgeProvider).geetestVerify();
+      await _bareDio.post('/auth/sms/send', data: {
+        'phone': phone,
+        'captcha': captcha,
+      });
+      return null;
+    } on PlatformException catch (e) {
+      return e.message ?? '人机验证失败';
+    } on DioException catch (e) {
+      return _dioErrorMessage(e);
+    } catch (_) {
+      return '发送失败，请重试';
+    }
+  }
+
+  /// 短信验证码登录（新手机号自动注册）。返回 null 表示成功
+  Future<String?> smsLogin({
+    required String phone,
+    required String code,
+  }) async {
+    try {
+      final authRes = await _bareDio.post('/auth/sms/login', data: {
+        'phone': phone,
+        'code': code,
+      });
+      final jwt = (authRes.data as Map<String, dynamic>)['token'] as String;
+      return await _exchangeTokens(jwt);
+    } on DioException catch (e) {
+      return _dioErrorMessage(e);
+    } catch (_) {
+      return '登录失败，请重试';
+    }
+  }
+
+  /// 阿里云一键登录：原生 SDK 拉起授权页拿 accessToken → 后端换手机号注册/登录
+  Future<String?> numberAuthLogin() async {
+    final String token;
+    try {
+      token =
+          await _ref.read(nativeAuthBridgeProvider).numberAuthGetLoginToken();
+    } on PlatformException catch (e) {
+      return e.message ?? '一键登录未完成';
+    } on UnsupportedError {
+      return '当前设备不支持一键登录';
+    }
+    try {
+      final authRes = await _bareDio.post('/auth/number-auth/login', data: {
+        'token': token,
+      });
+      final jwt = (authRes.data as Map<String, dynamic>)['token'] as String;
+      return await _exchangeTokens(jwt);
+    } on DioException catch (e) {
+      return _dioErrorMessage(e);
+    } catch (_) {
+      return '登录失败，请重试';
+    }
+  }
+
+  /// 发送绑定手机号验证码（需已登录；先极验）。返回 null 表示成功
+  Future<String?> bindPhoneSendCode(String phone) async {
+    try {
+      final captcha = await _ref.read(nativeAuthBridgeProvider).geetestVerify();
+      await _authedDio.post('/auth/phone/send-code', data: {
+        'phone': phone,
+        'captcha': captcha,
+      });
+      return null;
+    } on PlatformException catch (e) {
+      return e.message ?? '人机验证失败';
+    } on DioException catch (e) {
+      return _dioErrorMessage(e);
+    } catch (_) {
+      return '发送失败，请重试';
+    }
+  }
+
+  /// 绑定手机号。返回 null 表示成功
+  Future<String?> bindPhone({
+    required String phone,
+    required String code,
+  }) async {
+    try {
+      await _authedDio.post('/auth/phone/bind', data: {
+        'phone': phone,
+        'code': code,
+      });
+      final user = await _api.me();
+      state = state.copyWith(user: user);
+      return null;
+    } on DioException catch (e) {
+      return _dioErrorMessage(e);
+    } catch (_) {
+      return '绑定失败，请重试';
+    }
+  }
+
+  /// 主 Dio（携带 dstk_ 令牌 + 自动刷新），用于登录后的 /auth/phone/* 调用
+  Dio get _authedDio => _ref.read(dioProvider);
 
   /// 密码登录/注册共用流程，返回 null 表示成功，否则返回错误信息
   Future<String?> _passwordFlow({
     required String path,
     required String username,
     required String password,
-    String? usernameTakenHint,
+    Map<String, String>? captcha,
   }) async {
     try {
-      // 1. 密码换 JWT
+      // 1. 密码换 JWT（captcha 为极验二次校验参数）
       final authRes = await _bareDio.post(path, data: {
         'username': username,
         'password': password,
+        if (captcha != null) 'captcha': captcha,
       });
       final jwt = (authRes.data as Map<String, dynamic>)['token'] as String;
-
-      // 2. JWT + PKCE 换授权码
-      final pkce = generatePkce();
-      final redirectUrl = await _oauth.authorize(
-        jwt: jwt,
-        clientId: ApiConstants.clientId,
-        redirectUri: ApiConstants.redirectUri,
-        scope: ApiConstants.scopes.join(' '),
-        state: _randomState(),
-        codeChallenge: pkce.challenge,
-      );
-      final code = Uri.parse(redirectUrl).queryParameters['code'];
-      if (code == null) return '授权失败：未取得授权码';
-
-      // 3. 授权码换 dstk_ 令牌
-      final pair = await _oauth.exchangeCode(
-        code: code,
-        redirectUri: ApiConstants.redirectUri,
-        codeVerifier: pkce.verifier,
-        clientId: ApiConstants.clientId,
-      );
-      await _store.write(
-        access: pair.accessToken,
-        refresh: pair.refreshToken,
-      );
-      final user = await _api.me();
-      state = AuthState(status: AuthStatus.loggedIn, user: user);
-      return null;
+      return await _exchangeTokens(jwt);
     } on DioException catch (e) {
-      final data = e.response?.data;
-      if (data is Map<String, dynamic>) {
-        final msg = data['error'] as String?;
-        if (msg != null) return msg;
-      }
-      if (e.type == DioExceptionType.connectionError ||
-          e.type == DioExceptionType.connectionTimeout) {
-        return '网络连接失败，请检查网络';
-      }
-      return '请求失败，请稍后重试';
+      return _dioErrorMessage(e);
     } catch (_) {
       return '登录失败，请重试';
     }
+  }
+
+  /// JWT → PKCE 授权码 → dstk_ 令牌对 → 拉取用户信息
+  /// （密码登录/注册、短信登录、一键登录共用）
+  Future<String?> _exchangeTokens(String jwt) async {
+    final pkce = generatePkce();
+    final redirectUrl = await _oauth.authorize(
+      jwt: jwt,
+      clientId: ApiConstants.clientId,
+      redirectUri: ApiConstants.redirectUri,
+      scope: ApiConstants.scopes.join(' '),
+      state: _randomState(),
+      codeChallenge: pkce.challenge,
+    );
+    final code = Uri.parse(redirectUrl).queryParameters['code'];
+    if (code == null) return '授权失败：未取得授权码';
+
+    final pair = await _oauth.exchangeCode(
+      code: code,
+      redirectUri: ApiConstants.redirectUri,
+      codeVerifier: pkce.verifier,
+      clientId: ApiConstants.clientId,
+    );
+    await _store.write(
+      access: pair.accessToken,
+      refresh: pair.refreshToken,
+    );
+    final user = await _api.me();
+    state = AuthState(status: AuthStatus.loggedIn, user: user);
+    return null;
+  }
+
+  String _dioErrorMessage(DioException e) {
+    final data = e.response?.data;
+    if (data is Map<String, dynamic>) {
+      final msg = data['error'] as String?;
+      if (msg != null) return msg;
+    }
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout) {
+      return '网络连接失败，请检查网络';
+    }
+    return '请求失败，请稍后重试';
   }
 
   /// 登出：吊销令牌 + 清本地
@@ -201,8 +320,8 @@ class AuthController extends StateNotifier<AuthState> {
   }
 }
 
-final authControllerProvider =
-    StateNotifierProvider<AuthController, AuthState>((ref) => AuthController(ref));
+final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
+    (ref) => AuthController(ref));
 
 // ── PKCE 工具 ─────────────────────────────────────────────
 

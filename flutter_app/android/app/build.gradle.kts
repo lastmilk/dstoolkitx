@@ -38,6 +38,15 @@ android {
     }
 }
 
+dependencies {
+    // 极验 GT4 行为验证
+    implementation(files("libs/geetest_captcha_android_v1.8.14_20260804.aar"))
+    // 阿里云号码认证（一键登录）：核心 SDK + main + logger 三个 aar 缺一不可
+    implementation(files("libs/auth_number_product-2.14.23-log-online-standard-cuum-release.aar"))
+    implementation(files("libs/main-2.2.3-release.aar"))
+    implementation(files("libs/logger-2.2.2-release.aar"))
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17

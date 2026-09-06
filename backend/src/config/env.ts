@@ -25,6 +25,14 @@ const alipayEnabled =
      process.env.PAYMENT_ALIPAY_PRIVATE_KEY &&
      process.env.PAYMENT_ALIPAY_PUBLIC_KEY)
 
+// ═══════════ 极验 GT4 + 阿里云号码认证（可选：未配置时相应功能降级） ═══════════
+const geetestWebId = process.env.GEETEST_WEB_ID || ''
+const geetestWebKey = process.env.GEETEST_WEB_KEY || ''
+const geetestAppId = process.env.GEETEST_APP_ID || ''
+const geetestAppKey = process.env.GEETEST_APP_KEY || ''
+const aliyunAkId = process.env.ALIYUN_ACCESS_KEY_ID || ''
+const aliyunAkSecret = process.env.ALIYUN_ACCESS_KEY_SECRET || ''
+
 export const env = {
   databaseUrl: required('DATABASE_URL'),
   jwtSecret: required('JWT_SECRET'),
@@ -45,6 +53,22 @@ export const env = {
   kufakaEnabled,
   kufakaApiUrl,
   kufakaApiKey,
+  // 极验 GT4（Web/App 各一对 id+key；成对生效，全部未配置时跳过服务端二次校验）
+  geetest: {
+    webId: geetestWebId,
+    webKey: geetestWebKey,
+    appId: geetestAppId,
+    appKey: geetestAppKey,
+    webEnabled: !!(geetestWebId && geetestWebKey),
+    appEnabled: !!(geetestAppId && geetestAppKey),
+    anyEnabled: !!((geetestWebId && geetestWebKey) || (geetestAppId && geetestAppKey)),
+  },
+  // 阿里云号码认证服务（短信认证 + 一键登录；未配置时相关端点 503）
+  aliyun: {
+    enabled: !!(aliyunAkId && aliyunAkSecret),
+    akId: aliyunAkId,
+    akSecret: aliyunAkSecret,
+  },
   // 支付配置（预留）
   payment: {
     wechat: {

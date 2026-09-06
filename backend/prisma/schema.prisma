@@ -44,12 +44,24 @@ enum CardSource {
   KUFAKA
 }
 
+// 注册方式：LEGACY=存量用户（云权限保留）；USERNAME_PASSWORD=新传统注册（需绑手机才可用云端）；PHONE=手机号验证码/一键登录注册
+enum RegistrationType {
+  LEGACY
+  USERNAME_PASSWORD
+  PHONE
+}
+
 model User {
   id               Int              @id @default(autoincrement())
   username         String           @unique
   passwordHash     String
   role             Role             @default(USER)
   cloudSyncEnabled Boolean          @default(false)
+
+  // 手机号绑定（验证码登录/一键登录注册的用户默认已验证）
+  phone            String?          @unique
+  phoneVerifiedAt  DateTime?
+  registrationType RegistrationType @default(LEGACY)
 
   // Git 生态：Git 推送专用用户名（英文+数字+下划线；username 含中文时必填）
   gitUsername      String?          @unique

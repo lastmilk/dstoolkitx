@@ -25,7 +25,7 @@ function publicConfig(c: any) {
 router.get('/me', asyncHandler(async (req: AuthedRequest, res) => {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: req.user!.id },
-    select: { id: true, username: true, role: true, cloudSyncEnabled: true, createdAt: true, tier: true, tierExpiresAt: true, isPermanentTier: true },
+    select: { id: true, username: true, role: true, cloudSyncEnabled: true, createdAt: true, tier: true, tierExpiresAt: true, isPermanentTier: true, phone: true, phoneVerifiedAt: true, registrationType: true },
   })
   return res.json({ user })
 }))

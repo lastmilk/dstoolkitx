@@ -57,6 +57,7 @@ const router = createRouter({
         { path: 'pricing', name: 'pricing', component: () => import('@/views/pricing/Pricing.vue') },
         { path: 'market', name: 'market', component: () => import('@/views/market/Market.vue') },
         { path: 'profile', name: 'profile', component: () => import('@/views/profile/Profile.vue') },
+        { path: 'bind-phone', name: 'bind-phone', component: () => import('@/views/auth/BindPhone.vue') },
       ],
     },
   ],

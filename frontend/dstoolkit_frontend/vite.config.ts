@@ -6,6 +6,7 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 const srcDir = fileURLToPath(new URL('./src', import.meta.url))
 
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [

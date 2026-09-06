@@ -34,6 +34,17 @@ export function requireAdmin(req: AuthedRequest, res: Response, next: NextFuncti
 }
 
 /**
+ * 双协议鉴权：dstk_ 访问令牌（App/第三方）或 JWT（Web 会话）均可。
+ * /auth/phone/* 绑定手机号接口同时服务 Web（JWT）与 App（dstk_ 令牌）。
+ */
+export function verifyAnyToken(req: AuthedRequest, res: Response, next: NextFunction) {
+  const header = req.headers.authorization || ''
+  const token = header.startsWith('Bearer ') ? header.slice(7) : ''
+  if (token.startsWith('dstk_')) return verifyApiToken(req, res, next)
+  return verifyJwt(req, res, next)
+}
+
+/**
  * RESTful API v1 鉴权中间件：校验 `Authorization: Bearer dstk_...` 访问令牌。
  * 仅存哈希，校验时对入站令牌做 SHA-256 后比对；同时非阻塞更新 lastUsedAt。
  */

@@ -482,6 +482,26 @@ onMounted((): void => {
 
           <div class="sync-row">
             <div class="sync-info">
+              <div class="sync-title">手机号绑定</div>
+              <div class="sync-desc">
+                <template v-if="auth.user?.phone">已绑定 {{ auth.user.phone }}，云端功能正常可用</template>
+                <template v-else-if="auth.needsPhoneForCloud">未绑定：绑定手机号后才能使用云端同步与云端导入</template>
+                <template v-else>未绑定：绑定后可用于账号找回与安全验证</template>
+              </div>
+            </div>
+            <el-button
+              v-if="!auth.user?.phone"
+              :type="auth.needsPhoneForCloud ? 'warning' : 'primary'"
+              plain
+              size="small"
+              @click="router.push('/bind-phone')"
+            >
+              {{ auth.needsPhoneForCloud ? '去绑定' : '绑定手机号' }}
+            </el-button>
+          </div>
+
+          <div class="sync-row">
+            <div class="sync-info">
               <div class="sync-title">云端同步</div>
               <div class="sync-desc">
                 开启后对话数据将同步到云端，可在多设备访问；关闭后仅保存在本地浏览器（IndexedDB）。

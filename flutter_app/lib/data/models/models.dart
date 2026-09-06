@@ -10,6 +10,9 @@ class User {
     this.tier = 'FREE',
     this.tierExpiresAt,
     this.isPermanentTier = false,
+    this.phone,
+    this.phoneVerifiedAt,
+    this.registrationType = 'LEGACY',
   });
 
   final int id;
@@ -20,6 +23,15 @@ class User {
   final String tier;
   final DateTime? tierExpiresAt;
   final bool isPermanentTier;
+  /// 脱敏手机号（138****1234），未绑定为 null
+  final String? phone;
+  final DateTime? phoneVerifiedAt;
+  /// LEGACY=存量用户；USERNAME_PASSWORD=传统注册（未绑手机不可用云端）；PHONE=手机号注册
+  final String registrationType;
+
+  /// 传统注册且未绑定手机号：云端模式受限（与后端 needsPhoneForCloud 对应）
+  bool get needsPhoneForCloud =>
+      registrationType == 'USERNAME_PASSWORD' && (phone == null || phone!.isEmpty);
 
   factory User.fromJson(Map<String, dynamic> json) => User(
         id: (json['id'] as num).toInt(),
@@ -34,6 +46,11 @@ class User {
             ? null
             : DateTime.tryParse(json['tierExpiresAt'] as String),
         isPermanentTier: json['isPermanentTier'] as bool? ?? false,
+        phone: json['phone'] as String?,
+        phoneVerifiedAt: json['phoneVerifiedAt'] == null
+            ? null
+            : DateTime.tryParse(json['phoneVerifiedAt'] as String),
+        registrationType: json['registrationType'] as String? ?? 'LEGACY',
       );
 }
 

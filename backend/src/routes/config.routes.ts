@@ -14,6 +14,7 @@ import {
 } from '../services/deepseekParser.js'
 import { upsertConversations } from '../services/conversationStore.js'
 import { parsePaging } from '../utils/paging.js'
+import { needsPhoneForCloud, phoneRequiredResponse } from '../utils/cloudgate.js'
 import { aggregateTurnsFromMessages } from '../services/turns.js'
 
 const router = Router()
@@ -106,6 +107,9 @@ router.post('/', upload.single('file'), asyncHandler(async (req: AuthedRequest, 
       conversationCount: parsed.conversations.length,
     })
   }
+
+  // 云端闸门：新传统注册用户未绑手机号时禁止云端落库（存量 LEGACY 用户不受影响）
+  if (needsPhoneForCloud(user)) return phoneRequiredResponse(res)
 
   if (!user.cloudSyncEnabled) {
     // cloud=false：不落库，流式解析后收集全部会话返回前端存 IndexedDB

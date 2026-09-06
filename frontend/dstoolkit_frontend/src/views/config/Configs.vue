@@ -143,6 +143,18 @@ async function submitModal() {
     )
     modalVisible.value = false
     await reload()
+  } catch (e: any) {
+    // 云端闸门：新传统注册用户未绑手机号 → 引导去绑定页
+    const code = e?.response?.data?.code || e?.code
+    if (code === 'PHONE_REQUIRED_FOR_CLOUD') {
+      const ok = await sweetalert.confirm(
+        '需要绑定手机号',
+        '为保障数据安全，云端导入需先绑定手机号。是否现在前往绑定？',
+      )
+      if (ok) router.push('/bind-phone')
+    } else {
+      throw e
+    }
   } finally {
     submitting.value = false
   }

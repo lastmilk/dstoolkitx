@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { success } from '@/utils/sweetalert'
+import { showGeetest, GEETEST_CANCELLED } from '@/utils/geetest'
+import { ElMessage } from 'element-plus'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -46,11 +48,16 @@ async function onSubmit() {
   if (!valid) return
   loading.value = true
   try {
-    await auth.register(form.username.trim(), form.password)
+    const captcha = await showGeetest()
+    await auth.register(form.username.trim(), form.password, captcha)
     success('注册成功', '欢迎加入，已自动为你登录！')
-    router.push('/configs')
-  } catch {
-    /* 失败原因已由 request 响应拦截器统一提示 */
+    // 新注册用户须绑定手机号后才能使用云端模式（可跳过）
+    router.push('/bind-phone')
+  } catch (e: any) {
+    if (e?.code !== GEETEST_CANCELLED && e?.message?.includes('人机验证')) {
+      ElMessage.error(e.message)
+    }
+    /* 其余失败原因已由 request 响应拦截器统一提示 */
   } finally {
     loading.value = false
   }
@@ -146,7 +153,7 @@ async function onSubmit() {
         <el-icon class="btn-suffix"><ArrowRight /></el-icon>
       </el-button>
 
-      <p class="foot-tip">注册即表示同意服务条款，你的对话数据不会被上传给任何第三方</p>
+      <p class="foot-tip">注册即表示同意服务条款，你的对话数据不会被上传给任何第三方。<br />注册后绑定手机号即可解锁云端同步</p>
     </el-card>
   </div>
 </template>

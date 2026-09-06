@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 网络访问（API + WebView 授权） -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 阿里云号码认证（一键登录）网络与运营商网关探测 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <!-- debug 指向本机后端（10.0.2.2）时允许 cleartext -->
     <application
         android:label="DsToolKit"
