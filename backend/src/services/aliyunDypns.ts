@@ -44,9 +44,30 @@ function isConfigMissing(e: unknown): boolean {
   return (e as { status?: number })?.status === 503
 }
 
-/** 发送短信验证码（短信认证服务） */
-export async function sendSmsCode(phone: string, countryCode = '86'): Promise<void> {
-  const req = new SendSmsVerifyCodeRequest({ phoneNumber: phone, countryCode })
+/**
+ * 发送短信验证码（阿里云短信认证服务）
+ * @param templateCode 内置模板 Code：100001 登录/注册、100002 修改绑定手机号、
+ *                     100003 重置密码、100004 绑定新手机号、100005 验证绑定手机号
+ */
+export async function sendSmsCode(phone: string, countryCode = '86', templateCode = '100001'): Promise<void> {
+  const signName = env.aliyun.signName
+  if (!signName) {
+    throw Object.assign(
+      new Error('短信签名未配置：请在 .env 设置 ALIYUN_SMS_SIGN_NAME（阿里云短信控制台已审核通过的签名名称）'),
+      { status: 503 }
+    )
+  }
+  const req = new SendSmsVerifyCodeRequest({
+    phoneNumber: phone,
+    countryCode,
+    signName,
+    templateCode,
+    // 内置模板均含 ${code} 与 ${min} 两个变量：code 用占位符由系统生成，
+    // min 为验证码有效期分钟数（默认 ValidTime=300s=5 分钟，必须与之一致）
+    templateParam: JSON.stringify({ code: '##code##', min: '5' }),
+    // 传入 ##code## 占位符时 CodeType 必填：1=纯数字
+    codeType: 1,
+  })
   try {
     const res = await getClient().sendSmsVerifyCode(req)
     if (!res.body?.success) {

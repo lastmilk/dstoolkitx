@@ -1,0 +1,4 @@
+async function g(f,l,o={}){const c=localStorage.getItem("dstoolkit_token");try{const t=await fetch(f,{method:"POST",headers:{"Content-Type":"application/json",...c?{Authorization:`Bearer ${c}`}:{}},body:JSON.stringify(l),signal:o.signal});if(!t.ok){const n=await t.text().catch(()=>"");let e=`请求失败 (${t.status})`;try{e=JSON.parse(n).error||e}catch{e=n||e}throw new Error(e)}if(!t.body)throw new Error("响应为空");const h=t.body.getReader(),u=new TextDecoder;let a="";for(;;){const{done:n,value:e}=await h.read();if(n)break;a+=u.decode(e,{stream:!0});const s=a.split(`
+
+`);a=s.pop()||"";for(const w of s){const y=w.split(`
+`);for(const i of y){if(!i.startsWith("data:"))continue;const d=i.slice(5).trim();if(d)try{const r=JSON.parse(d);if(r.error){o.onError?.(new Error(r.error));return}r.delta&&o.onDelta?.(r.delta),r.done&&o.onDone?.(r)}catch{}}}}}catch(t){if(t?.name==="AbortError")return;o.onError?.(t)}}export{g as s};

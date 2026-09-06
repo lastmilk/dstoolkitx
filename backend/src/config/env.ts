@@ -32,6 +32,7 @@ const geetestAppId = process.env.GEETEST_APP_ID || ''
 const geetestAppKey = process.env.GEETEST_APP_KEY || ''
 const aliyunAkId = process.env.ALIYUN_ACCESS_KEY_ID || ''
 const aliyunAkSecret = process.env.ALIYUN_ACCESS_KEY_SECRET || ''
+const aliyunSmsSignName = process.env.ALIYUN_SMS_SIGN_NAME || ''
 
 export const env = {
   databaseUrl: required('DATABASE_URL'),
@@ -75,6 +76,7 @@ export const env = {
     enabled: !!(aliyunAkId && aliyunAkSecret),
     akId: aliyunAkId,
     akSecret: aliyunAkSecret,
+    signName: aliyunSmsSignName,
   },
   // 支付配置（预留）
   payment: {

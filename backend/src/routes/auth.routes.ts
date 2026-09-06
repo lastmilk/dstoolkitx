@@ -204,7 +204,7 @@ router.post('/phone/send-code', verifyJwt, requireCaptcha, asyncHandler(async (r
   if (!hit(`bind:${phone}`, 60_000, 1)) return res.status(429).json({ error: '发送太频繁，请 1 分钟后再试' })
   if (!hit(`bindday:${phone}`, 86_400_000, 5)) return res.status(429).json({ error: '今日验证码发送次数已达上限' })
   try {
-    await sendSmsCode(phone, countryCode)
+    await sendSmsCode(phone, countryCode, '100004')
   } catch (e) {
     return res.status(smsErrorStatus(e)).json({ error: (e as Error).message })
   }
