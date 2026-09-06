@@ -40,6 +40,7 @@ export const env = {
   jwtExpires: process.env.JWT_EXPIRES || '7d',
   frontendOrigin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
   adminOrigin: process.env.ADMIN_ORIGIN || 'http://localhost:5174',
+  openOrigin: process.env.OPEN_ORIGIN || 'http://localhost:5175',
   port: Number(process.env.PORT || 3000),
   deepseekApiBase: process.env.DEEPSEEK_API_BASE || 'https://api.deepseek.com',
   // 服务端 AI 调用密钥（摘要/整理/导出润色等增值操作）

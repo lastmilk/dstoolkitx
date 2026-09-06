@@ -142,6 +142,7 @@ model User {
   shares           Share[]
   oauthCodes       OAuthCode[]
   oauthTokens      OAuthToken[]
+  oauthClients     OAuthClient[]
 
   // AI 知识库扩展
   unifiedConversations UnifiedConversation[]
@@ -444,9 +445,14 @@ model OAuthClient {
   scopes       Json          // ["read:conversations", ...]
   isPublic     Boolean       @default(true) // true = PKCE 公共客户端，无 client_secret
   enabled      Boolean       @default(true)
+  // 开放平台：开发者自有的 OAuth 应用（内置公共客户端 userId 为 null）
+  owner        User?         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId      Int?
   createdAt    DateTime      @default(now())
   codes        OAuthCode[]
   tokens       OAuthToken[]
+
+  @@index([ownerId])
 }
 
 model OAuthCode {

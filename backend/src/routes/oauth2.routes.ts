@@ -235,4 +235,77 @@ router.post('/revoke', asyncHandler(async (req, res) => {
   return res.json({ ok: true })
 }))
 
+// ─────────────────────────────────────────────
+// 开放平台：OAuth 应用管理（当前用户创建/查看/删除自有客户端）
+// ─────────────────────────────────────────────
+
+// GET /api/oauth/clients  列出当前用户创建的 OAuth 应用
+router.get('/clients', verifyJwt, asyncHandler(async (req: AuthedRequest, res) => {
+  const clients = await prisma.oAuthClient.findMany({
+    where: { ownerId: req.user!.id },
+    orderBy: { createdAt: 'desc' },
+  })
+  return res.json({
+    clients: clients.map((c) => ({
+      id: c.id,
+      clientId: c.clientId,
+      name: c.name,
+      redirectUris: c.redirectUris as string[],
+      scopes: c.scopes as string[],
+      isPublic: c.isPublic,
+      enabled: c.enabled,
+      createdAt: c.createdAt,
+    })),
+  })
+}))
+
+const createClientSchema = z.object({
+  name: z.string().min(1).max(64),
+  redirectUris: z.array(z.string().url()).min(1).max(10),
+  scopes: z.array(z.string()).max(20).optional(),
+  isPublic: z.boolean().optional().default(true),
+})
+
+// POST /api/oauth/clients  创建 OAuth 应用
+router.post('/clients', verifyJwt, asyncHandler(async (req: AuthedRequest, res) => {
+  const parsed = createClientSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: '参数错误：name 必填，redirectUris 为 URL 数组' })
+  }
+  const { name, redirectUris, scopes, isPublic } = parsed.data
+  const clientId = 'dstk-' + crypto.randomBytes(12).toString('hex')
+  const created = await prisma.oAuthClient.create({
+    data: {
+      clientId,
+      name,
+      redirectUris,
+      scopes: scopes?.length ? scopes : ['read:conversations', 'profile'],
+      isPublic,
+      ownerId: req.user!.id,
+    },
+  })
+  return res.status(201).json({
+    id: created.id,
+    clientId: created.clientId,
+    name: created.name,
+    redirectUris: created.redirectUris as string[],
+    scopes: created.scopes as string[],
+    isPublic: created.isPublic,
+    enabled: created.enabled,
+    createdAt: created.createdAt,
+  })
+}))
+
+// DELETE /api/oauth/clients/:id  删除当前用户的 OAuth 应用
+router.delete('/clients/:id', verifyJwt, asyncHandler(async (req: AuthedRequest, res) => {
+  const id = Number(req.params.id)
+  const client = await prisma.oAuthClient.findFirst({ where: { id, ownerId: req.user!.id } })
+  if (!client) return res.status(404).json({ error: '应用不存在' })
+  // 级联删除关联的 code/token
+  await prisma.oAuthToken.deleteMany({ where: { clientId: id } })
+  await prisma.oAuthCode.deleteMany({ where: { clientId: id } })
+  await prisma.oAuthClient.delete({ where: { id } })
+  return res.json({ ok: true })
+}))
+
 export default router
