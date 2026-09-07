@@ -36,7 +36,7 @@ import { startMirrorWorker } from './services/gitMirror.js'
 
 const app = express()
 
-app.use(cors({ origin: [env.frontendOrigin, env.adminOrigin], credentials: true }))
+app.use(cors({ origin: [env.frontendOrigin, env.adminOrigin, env.openOrigin], credentials: true }))
 app.use(compression())  // gzip 压缩：20MB JSON → ~1-2MB，大幅减少传输时间
 // Git 智能HTTP：必须在 express.json 之前挂载（原始流透传给 git http-backend）
 app.use('/git', gitRoutes)

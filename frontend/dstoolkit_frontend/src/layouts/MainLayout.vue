@@ -11,7 +11,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   Upload, Search, DataAnalysis, Switch as SwitchIcon, Wallet, Medal, Grid, User,
   Sunny, Moon, SwitchButton, Cloudy, CircleClose, Brush,
-  Link, ChatDotRound, Cpu, EditPen, Setting, Menu,
+  Link, ChatDotRound, Cpu, EditPen, Setting, Menu, Odometer,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -48,6 +48,11 @@ function closeMobileSidebar() {
   mobileSidebarVisible.value = false
 }
 function navigateMenu(path: string) {
+  if (path === '/open') {
+    window.open('/open/', '_blank')
+    closeMobileSidebar()
+    return
+  }
   router.push(path)
   closeMobileSidebar()
 }
@@ -74,6 +79,7 @@ const menuItems: MenuItem[] = [
   { label: '升级方案', path: '/pricing', icon: Medal },
   { label: '模型市场', path: '/market', icon: Grid },
   { label: '个人中心', path: '/profile', icon: User },
+  { label: '开放平台', path: '/open', icon: Odometer },
 ]
 const activePath = computed(() => route.path)
 
@@ -131,7 +137,7 @@ function handleUserCommand(cmd: string | number | object) {
       <el-menu
         :default-active="activePath"
         class="side-menu"
-        router
+        @select="navigateMenu"
       >
         <el-menu-item v-for="item in menuItems" :key="item.path" :index="item.path">
           <el-icon><component :is="item.icon" /></el-icon>
