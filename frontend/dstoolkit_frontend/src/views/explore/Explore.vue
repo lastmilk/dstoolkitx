@@ -1051,6 +1051,8 @@ onUnmounted(() => {
   .list-panel {
     width: 100%;
     flex: 1;
+    /* 移动端保证列表可视高度，避免被搜索面板挤扁 */
+    min-height: 240px;
   }
   .list-panel.mobile-hide {
     display: none;
@@ -1061,8 +1063,54 @@ onUnmounted(() => {
   .viewer-panel.mobile-show {
     display: flex;
   }
+
+  /* 压缩搜索面板纵向占位，把空间还给列表 */
+  .explore-page {
+    gap: 8px;
+  }
+  .search-panel :deep(.el-card__body) {
+    gap: 8px;
+    padding: 12px;
+  }
+  .search-panel :deep(.el-card__header) {
+    padding: 10px 12px;
+  }
+  .search-row {
+    gap: 8px;
+  }
+  .regex-toggle {
+    gap: 6px;
+  }
   .options-row {
     gap: 12px;
+    /* 两个分段控件横向滚动，避免换行占用纵向空间 */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  .options-row .opt-group {
+    flex-shrink: 0;
+  }
+  .filter-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-top: 8px;
+    gap: 6px;
+  }
+  .filter-row .opt-label {
+    flex-shrink: 0;
+  }
+}
+
+/* ══════════ 移动端高度修正（与 MainLayout 的 768px 断点对齐） ══════════ */
+/* el-main padding 由 20px 收窄为 12px，故 60px 顶栏 + 24px 内边距 = 84px */
+@media (max-width: 768px) {
+  .explore-page {
+    height: calc(100vh - 84px);
+    height: calc(100dvh - 84px);
+    min-height: 420px;
   }
 }
 </style>
