@@ -11,7 +11,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   Upload, Search, DataAnalysis, Switch as SwitchIcon, Wallet, Medal, Grid, User,
   Sunny, Moon, SwitchButton, Cloudy, CircleClose, Brush,
-  Link, ChatDotRound, Cpu, EditPen, Setting, Menu, Odometer, HomeFilled,
+  Link, Menu, Odometer, HomeFilled, Collection,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -70,11 +70,7 @@ const menuItems: MenuItem[] = [
   { label: '对话容器', path: '/configs', icon: Upload },
   { label: '对话探索', path: '/explore', icon: Search },
   { label: '导入对话', path: '/import', icon: Link },
-  { label: 'AI 续聊', path: '/continue-chat', icon: ChatDotRound },
-  { label: 'Agent 续聊', path: '/agent', icon: Cpu },
-  { label: '记忆试卷', path: '/test-paper', icon: EditPen },
-  { label: 'Agent 工具', path: '/agent-tools', icon: Setting },
-  { label: '数据统计', path: '/stats', icon: DataAnalysis },
+  { label: '知识库功能', path: '/knowledge-base', icon: Collection },
   { label: 'Alpaca 导出', path: '/alpaca', icon: SwitchIcon },
   { label: '余额', path: '/balance', icon: Wallet },
   { label: '升级方案', path: '/pricing', icon: Medal },
@@ -85,20 +81,16 @@ const menuItems: MenuItem[] = [
 const activePath = computed(() => route.path)
 
 const PAGE_META: Record<string, { title: string; subtitle: string }> = {
-  home: { title: '首页 · AI 工作台', subtitle: 'AI 续聊 / Agent 续聊 / 记忆试卷 / Agent 工具 一站式集成' },
+  home: { title: '首页 · AI 工作台', subtitle: '统一 AI 对话 · 可切换 Agent 与知识库模式' },
   configs: { title: '对话容器', subtitle: '导入 Deepseek 数据包，Git 增量同步管理对话' },
   explore: { title: '对话探索', subtitle: '搜索、浏览和继续你的对话' },
-  stats: { title: '数据统计', subtitle: '对话量、模型分布、活跃时段' },
+  'knowledge-base': { title: '知识库功能', subtitle: '统计数据可视化 · 记忆试卷生成与自测' },
   alpaca: { title: 'Alpaca 导出', subtitle: '导出为微调训练数据格式' },
   balance: { title: '余额', subtitle: 'API Key 余额与用量信息' },
   pricing: { title: '升级方案', subtitle: 'Pro / Plus / Ultimate 三档权益与支付' },
   market: { title: '模型市场', subtitle: '工具生态与官方资源' },
   profile: { title: '个人中心', subtitle: '账号设置、密钥管理' },
   import: { title: '导入对话', subtitle: '分享链接增量导入 / JSON 全量导入' },
-  'continue-chat': { title: 'AI 续聊', subtitle: '基于内置 DeepSeek 模型续聊，每小时限流' },
-  agent: { title: 'Agent 续聊', subtitle: '基于 StepFun 模型 + MCP + Skills，消耗积分' },
-  'test-paper': { title: '记忆试卷', subtitle: 'AI 基于知识库生成试卷与参考答案' },
-  'agent-tools': { title: 'Agent 工具', subtitle: '管理 Skills 技能库与 MCP 服务器' },
 }
 const pageMeta = computed(() => PAGE_META[(route.name as string) ?? ''] ?? { title: '', subtitle: '' })
 
