@@ -11,7 +11,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   Upload, Search, DataAnalysis, Switch as SwitchIcon, Wallet, Medal, Grid, User,
   Sunny, Moon, SwitchButton, Cloudy, CircleClose, Brush,
-  Link, ChatDotRound, Cpu, EditPen, Setting, Menu, Odometer,
+  Link, ChatDotRound, Cpu, EditPen, Setting, Menu, Odometer, HomeFilled,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -66,6 +66,7 @@ interface MenuItem {
   icon: Component
 }
 const menuItems: MenuItem[] = [
+  { label: '首页', path: '/home', icon: HomeFilled },
   { label: '对话容器', path: '/configs', icon: Upload },
   { label: '对话探索', path: '/explore', icon: Search },
   { label: '导入对话', path: '/import', icon: Link },
@@ -84,6 +85,7 @@ const menuItems: MenuItem[] = [
 const activePath = computed(() => route.path)
 
 const PAGE_META: Record<string, { title: string; subtitle: string }> = {
+  home: { title: '首页 · AI 工作台', subtitle: 'AI 续聊 / Agent 续聊 / 记忆试卷 / Agent 工具 一站式集成' },
   configs: { title: '对话容器', subtitle: '导入 Deepseek 数据包，Git 增量同步管理对话' },
   explore: { title: '对话探索', subtitle: '搜索、浏览和继续你的对话' },
   stats: { title: '数据统计', subtitle: '对话量、模型分布、活跃时段' },
