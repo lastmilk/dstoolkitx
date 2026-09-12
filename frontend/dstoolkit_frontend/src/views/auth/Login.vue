@@ -80,7 +80,7 @@ async function onSmsLogin() {
   try {
     await auth.smsLogin(phone.value.trim(), smsCode.value.trim())
     success('登录成功', `欢迎回来，${auth.user?.username || '用户'}！`)
-    router.push((route.query.redirect as string) || '/configs')
+    router.push((route.query.redirect as string) || '/git-repos')
   } catch {
     /* 失败原因已由 request 响应拦截器统一提示 */
   } finally {
@@ -115,7 +115,7 @@ async function onSubmit() {
     const captcha = await showGeetest()
     await auth.login(form.username.trim(), form.password, captcha)
     success('登录成功', `欢迎回来，${auth.user?.username || '用户'}！`)
-    router.push((route.query.redirect as string) || '/configs')
+    router.push((route.query.redirect as string) || '/git-repos')
   } catch (e: any) {
     if (e?.code !== GEETEST_CANCELLED && e?.message?.includes('人机验证')) {
       ElMessage.error(e.message)

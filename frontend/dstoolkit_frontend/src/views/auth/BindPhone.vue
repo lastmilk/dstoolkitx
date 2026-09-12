@@ -82,7 +82,7 @@ async function onBind() {
 }
 
 function skip() {
-  router.push('/configs')
+  router.push('/git-repos')
 }
 </script>
 

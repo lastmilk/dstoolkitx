@@ -50,7 +50,7 @@ const router = createRouter({
       component: () => import('@/layouts/MainLayout.vue'),
       children: [
         { path: 'home', name: 'home', component: () => import('@/views/home/Home.vue') },
-        { path: 'configs', name: 'configs', component: () => import('@/views/config/Configs.vue') },
+        { path: 'configs', redirect: '/git-repos' },
         { path: 'explore', name: 'explore', component: () => import('@/views/explore/Explore.vue') },
         { path: 'search', redirect: '/explore' },
         { path: 'timeline', redirect: '/explore' },

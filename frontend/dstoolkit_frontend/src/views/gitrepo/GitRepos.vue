@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
  * GitRepos.vue
- * Git 仓库管理首页：先创建仓库，之后再上传对话记录压缩包。
+ * 对话仓库首页：先创建仓库，之后再上传对话记录压缩包。
  *
  * 上传流程：上传压缩包 → 解压 → 统计对话数 → 按轮次拆分 → 推送至 Git 仓库
  * 任务进入持久化队列（断电可续传），通过右上角小红点通知栏查看进度。
+ * 同步双写 Conversation 表，供 Explore/Stats/Export 下游复用。
  */
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -124,7 +125,7 @@ onMounted(load)
     <el-card shadow="never" class="header-card">
       <div class="header-row">
         <div>
-          <h2>Git 仓库</h2>
+          <h2>对话仓库</h2>
           <p class="header-sub">先创建仓库 · 上传压缩包后自动拆分存储 · 任务队列断电续传</p>
         </div>
         <div class="header-actions">
@@ -165,7 +166,7 @@ onMounted(load)
     </el-card>
 
     <!-- 创建仓库对话框 -->
-    <el-dialog v-model="createVisible" title="创建 Git 仓库" width="460px">
+    <el-dialog v-model="createVisible" title="创建对话仓库" width="460px">
       <el-form label-position="top">
         <el-form-item label="仓库名称" required>
           <el-input v-model="createForm.name" placeholder="例如：my-conversations" />

@@ -15,7 +15,8 @@
  */
 import AdmZip from 'adm-zip'
 import { parseUnifiedMessageJson, type UnifiedImportConversation } from './importService.js'
-import type { UnifiedMsgRole } from '@prisma/client'
+import { aggregateTurnsFromMessages } from './turns.js'
+import type { ParsedConversation, ParsedMessage } from './deepseekParser.js'
 
 export interface SplitTurn {
   turnIndex: number
@@ -190,4 +191,66 @@ export function reconstructConversation(
     turnCount: meta.turnCount ?? turns.length,
     turns,
   }
+}
+
+/**
+ * 把拆分后的 SplitConversation 转回 ParsedConversation，
+ * 用于双写到 Conversation + Message 表（任务队列在推送 git 后自动同步索引数据源）。
+ *
+ * 每个 turn 展开为 1~2 条 message（user 在前、assistant 在后），
+ * 通过 nodeId/parentId 链式关联以保留轮次结构。
+ */
+export function splitConvToParsed(c: SplitConversation): ParsedConversation {
+  const insertedAt = new Date(c.insertedAt)
+  const updatedAt = new Date(c.updatedAt)
+  const messages: ParsedMessage[] = []
+  let prevNodeId: string | null = null
+
+  for (const t of c.turns) {
+    if (t.user) {
+      const userNodeId = `${c.convId}-t${t.turnIndex}-u`
+      messages.push({
+        nodeId: userNodeId,
+        parentId: prevNodeId,
+        role: 'USER',
+        model: null,
+        content: t.user.content,
+        insertedAt,
+        turnIndex: t.turnIndex,
+        versionIndex: 0,
+        subTurnIndex: 0,
+      })
+      prevNodeId = userNodeId
+    }
+    if (t.assistant) {
+      const asstNodeId = `${c.convId}-t${t.turnIndex}-a`
+      messages.push({
+        nodeId: asstNodeId,
+        parentId: prevNodeId,
+        role: 'ASSISTANT',
+        model: null,
+        content: t.assistant.content,
+        insertedAt,
+        turnIndex: t.turnIndex,
+        versionIndex: 0,
+        subTurnIndex: 0,
+      })
+      prevNodeId = asstNodeId
+    }
+  }
+
+  return {
+    deepseekConvId: c.convId,
+    title: c.title,
+    insertedAt,
+    updatedAt,
+    mapping: {},
+    messages,
+    turns: aggregateTurnsFromMessages(messages as any),
+  }
+}
+
+/** 批量转换：把一组 SplitConversation 转为 ParsedConversation（双写用） */
+export function splitConvsToParsed(list: SplitConversation[]): ParsedConversation[] {
+  return list.map(splitConvToParsed)
 }
