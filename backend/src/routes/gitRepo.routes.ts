@@ -27,8 +27,10 @@ import {
 import {
   extractConversationsFromZip,
   buildRepoFileTree,
+  splitConvsToParsed,
 } from '../services/conversationSplitter.js'
 import { pushSplitTree, listRepoTree } from '../services/gitPusher.js'
+import { upsertConversations } from '../services/conversationStore.js'
 
 const router = Router()
 const upload = multer({
@@ -54,7 +56,7 @@ function ensureTaskHandler(): void {
     const buf = Buffer.from(zipBuffer, 'base64')
 
     // 步骤 1：解压压缩包
-    await ctx.update(5, '正在解压压缩包…', { current: 1, total: 4 })
+    await ctx.update(5, '正在解压压缩包…', { current: 1, total: 5 })
     const extracted = extractConversationsFromZip(buf)
 
     // 步骤 2：统计对话数量
@@ -62,15 +64,15 @@ function ensureTaskHandler(): void {
     const totalTurns = extracted.conversations.reduce((s, c) => s + c.turnCount, 0)
     await ctx.update(25, `解压完成：检测到 ${convCount} 个对话 / ${totalTurns} 轮`, {
       current: 2,
-      total: 4,
+      total: 5,
     })
 
     // 步骤 3：拆分对话 → 构建文件树
-    await ctx.update(45, '正在拆分对话（按轮次存储）…', { current: 3, total: 4 })
+    await ctx.update(45, '正在拆分对话（按轮次存储）…', { current: 3, total: 5 })
     const tree = buildRepoFileTree(repoName, extracted.conversations)
 
     // 步骤 4：推送至 git 仓库（拆分存储）
-    await ctx.update(70, '正在推送至 Git 仓库…', { current: 4, total: 4 })
+    await ctx.update(70, '正在推送至 Git 仓库…', { current: 4, total: 5 })
     const pushed = await pushSplitTree({
       repoFsName,
       gitUsername,
@@ -78,10 +80,35 @@ function ensureTaskHandler(): void {
       tree,
     })
 
+    // 步骤 5：双写 Conversation 表（供 Explore / Stats / Export 下游复用）
+    //   每个 GitRepo 自动关联一个 DeepseekConfig 壳（deepseekUserId = git_<repoId>），
+    //   上传后任务队列自动 upsert 对话到该容器，下游页面无感知读取。
+    await ctx.update(85, '正在同步索引数据源（双写 Conversation 表）…', { current: 5, total: 5 })
+    try {
+      const deepseekUserId = `git_${ctx.gitRepoId}`
+      let config = await prisma.deepseekConfig.findFirst({
+        where: { userId: ctx.userId, deepseekUserId },
+      })
+      if (!config) {
+        config = await prisma.deepseekConfig.create({
+          data: {
+            userId: ctx.userId,
+            name: repoName,
+            deepseekUserId,
+          },
+        })
+      }
+      const parsed = splitConvsToParsed(extracted.conversations)
+      await upsertConversations(ctx.userId, config.id, parsed)
+    } catch (e) {
+      // 双写失败不阻断主流程（git 已推送成功），仅记录告警
+      console.warn('[gitRepo] 双写 Conversation 表失败（不阻断 git 推送）:', e)
+    }
+
     // 完成
     await ctx.update(100, `完成：已推送 ${pushed.pushedFiles} 个文件`, {
-      current: 4,
-      total: 4,
+      current: 5,
+      total: 5,
     })
 
     // 更新仓库状态

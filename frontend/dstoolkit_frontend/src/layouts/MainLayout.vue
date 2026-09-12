@@ -9,7 +9,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Upload, Search, DataAnalysis, Wallet, Medal, Grid, User,
+  Search, Wallet, Medal, Grid, User,
   Sunny, Moon, SwitchButton, Cloudy, CircleClose, Brush,
   Link, Menu, Odometer, HomeFilled, Collection, Download, Folder,
 } from '@element-plus/icons-vue'
@@ -68,11 +68,10 @@ interface MenuItem {
 }
 const menuItems: MenuItem[] = [
   { label: '首页', path: '/home', icon: HomeFilled },
-  { label: '对话容器', path: '/configs', icon: Upload },
+  { label: '对话仓库', path: '/git-repos', icon: Folder },
   { label: '对话探索', path: '/explore', icon: Search },
   { label: '导入对话', path: '/import', icon: Link },
   { label: '知识库功能', path: '/knowledge-base', icon: Collection },
-  { label: 'Git 仓库', path: '/git-repos', icon: Folder },
   { label: '导出', path: '/export', icon: Download },
   { label: '余额', path: '/balance', icon: Wallet },
   { label: '升级方案', path: '/pricing', icon: Medal },
@@ -84,11 +83,11 @@ const activePath = computed(() => route.path)
 
 const PAGE_META: Record<string, { title: string; subtitle: string }> = {
   home: { title: '首页 · AI 工作台', subtitle: '统一 AI 对话 · 可切换 Agent 与知识库模式' },
-  configs: { title: '对话容器', subtitle: '导入 Deepseek 数据包，Git 增量同步管理对话' },
+  configs: { title: '对话仓库', subtitle: '先创建仓库 · 上传压缩包后自动拆分存储' },
+  'git-repos': { title: '对话仓库', subtitle: '先创建仓库 · 上传压缩包后自动拆分存储 · 任务队列断电续传' },
+  'git-repo-detail': { title: '仓库详情', subtitle: '查看仓库内拆分存储的对话记录' },
   explore: { title: '对话探索', subtitle: '搜索、浏览和继续你的对话' },
   'knowledge-base': { title: '知识库功能', subtitle: '统计数据可视化 · 记忆试卷生成与自测' },
-  'git-repos': { title: 'Git 仓库', subtitle: '先创建仓库 · 上传压缩包后自动拆分存储' },
-  'git-repo-detail': { title: '仓库详情', subtitle: '查看仓库内拆分存储的对话记录' },
   export: { title: '导出', subtitle: 'JSON · CSV · Markdown · HTML · Alpaca 多样化导出' },
   balance: { title: '余额', subtitle: 'API Key 余额与用量信息' },
   pricing: { title: '升级方案', subtitle: 'Pro / Plus / Ultimate 三档权益与支付' },

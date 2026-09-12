@@ -27,7 +27,7 @@ const productLinks: FooterLink[] = [
   { label: '数据统计', path: '/stats' },
   { label: 'Alpaca 导出', path: '/alpaca' },
   { label: '模型市场', path: '/market' },
-  { label: '账号配置', path: '/configs' },
+  { label: '对话仓库', path: '/git-repos' },
 ]
 
 const resourceLinks: FooterLink[] = [

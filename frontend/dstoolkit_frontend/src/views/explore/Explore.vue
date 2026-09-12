@@ -353,7 +353,7 @@ async function pushIncremental(item: SearchListItem) {
       const configs = (res.configs ?? []) as Array<{ id: number; name: string; deepseekUserId: string }>
       const matched = localUid ? configs.find((c) => c.deepseekUserId === localUid) : undefined
       if (!matched) {
-        ElMessage.warning('该对话所属账号还没有云端对话容器，无法使用 Git 增量同步')
+        ElMessage.warning('该对话所属账号还没有云端对话仓库，无法使用 Git 增量同步')
         return
       }
       configId = matched.id
