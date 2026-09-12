@@ -9,9 +9,9 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Upload, Search, DataAnalysis, Switch as SwitchIcon, Wallet, Medal, Grid, User,
+  Upload, Search, DataAnalysis, Wallet, Medal, Grid, User,
   Sunny, Moon, SwitchButton, Cloudy, CircleClose, Brush,
-  Link, Menu, Odometer, HomeFilled, Collection,
+  Link, Menu, Odometer, HomeFilled, Collection, Download, Folder,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -19,6 +19,7 @@ import { useThemeStore } from '@/stores/theme'
 import { clearLocalData } from '@/utils/db'
 import { confirmDanger } from '@/utils/sweetalert'
 import StyleSettingsDrawer from '@/components/StyleSettingsDrawer.vue'
+import TaskNotification from '@/components/TaskNotification.vue'
 import logo from '@/assets/logo.png'
 
 const auth = useAuthStore()
@@ -71,7 +72,8 @@ const menuItems: MenuItem[] = [
   { label: '对话探索', path: '/explore', icon: Search },
   { label: '导入对话', path: '/import', icon: Link },
   { label: '知识库功能', path: '/knowledge-base', icon: Collection },
-  { label: 'Alpaca 导出', path: '/alpaca', icon: SwitchIcon },
+  { label: 'Git 仓库', path: '/git-repos', icon: Folder },
+  { label: '导出', path: '/export', icon: Download },
   { label: '余额', path: '/balance', icon: Wallet },
   { label: '升级方案', path: '/pricing', icon: Medal },
   { label: '模型市场', path: '/market', icon: Grid },
@@ -85,7 +87,9 @@ const PAGE_META: Record<string, { title: string; subtitle: string }> = {
   configs: { title: '对话容器', subtitle: '导入 Deepseek 数据包，Git 增量同步管理对话' },
   explore: { title: '对话探索', subtitle: '搜索、浏览和继续你的对话' },
   'knowledge-base': { title: '知识库功能', subtitle: '统计数据可视化 · 记忆试卷生成与自测' },
-  alpaca: { title: 'Alpaca 导出', subtitle: '导出为微调训练数据格式' },
+  'git-repos': { title: 'Git 仓库', subtitle: '先创建仓库 · 上传压缩包后自动拆分存储' },
+  'git-repo-detail': { title: '仓库详情', subtitle: '查看仓库内拆分存储的对话记录' },
+  export: { title: '导出', subtitle: 'JSON · CSV · Markdown · HTML · Alpaca 多样化导出' },
   balance: { title: '余额', subtitle: 'API Key 余额与用量信息' },
   pricing: { title: '升级方案', subtitle: 'Pro / Plus / Ultimate 三档权益与支付' },
   market: { title: '模型市场', subtitle: '工具生态与官方资源' },
@@ -234,6 +238,8 @@ function handleUserCommand(cmd: string | number | object) {
             <span class="brand-name">Deepseek Toolkit</span>
             <span class="brand-tag">对话管理工作台</span>
           </div>
+          <!-- 任务队列通知小红点（紧邻 Deepseek Toolkit 右侧） -->
+          <TaskNotification class="brand-task-notif" />
           <el-divider direction="vertical" />
           <div class="page-identity">
             <span class="page-title">{{ pageMeta.title }}</span>
@@ -448,6 +454,9 @@ function handleUserCommand(cmd: string | number | object) {
 .brand-tag {
   font-size: 11px;
   color: var(--el-text-color-secondary);
+}
+.brand-task-notif {
+  flex-shrink: 0;
 }
 .page-identity {
   display: flex;

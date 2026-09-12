@@ -662,6 +662,7 @@ export async function loadConversationsPage(opts: {
       turns: withMessages ? (c.turns ?? []) : [],
       turnCount: c.turnCount ?? 0,
       configId,
+      id: c.id,
     }))
     return {
       conversations,

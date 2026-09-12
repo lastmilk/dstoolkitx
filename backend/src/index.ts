@@ -32,7 +32,10 @@ import agentRoutes from './routes/agent.routes.js'
 import testPaperRoutes from './routes/testPaper.routes.js'
 import skillsRoutes from './routes/skills.routes.js'
 import mcpRoutes from './routes/mcp.routes.js'
+import gitRepoRoutes from './routes/gitRepo.routes.js'
+import exportRoutes from './routes/export.routes.js'
 import { startMirrorWorker } from './services/gitMirror.js'
+import { startTaskQueueWorker } from './services/persistentQueue.js'
 
 const app = express()
 
@@ -74,6 +77,10 @@ app.use('/api/test-papers', testPaperRoutes)
 app.use('/api/skills', skillsRoutes)
 app.use('/api/mcp', mcpRoutes)
 
+// ═══════════ Git 仓库（先建后传·拆分存储·任务队列）+ 多样化导出 ═══════════
+app.use('/api/git-repos', gitRepoRoutes)
+app.use('/api/export', exportRoutes)
+
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   // multer 文件大小错误
   if (err?.code === 'LIMIT_FILE_SIZE') {
@@ -114,7 +121,9 @@ async function seed() {
 const server = app.listen(env.port, async () => {
   console.log(`[dstoolkit] backend running on http://localhost:${env.port}`)
   startMirrorWorker() // Git 推送 → MySQL 镜像队列消费
-  console.log('[dstoolkit] git smart-http at /git/<u<uid>_c<cid>>.git')
+  startTaskQueueWorker() // 持久化任务队列（断电续传）
+  console.log('[dstoolkit] git smart-http at /git/u<uid>_c<cid>.git')
+  console.log('[dstoolkit] git repos (split storage) at /api/git-repos')
   if (env.meiliEnabled) {
     console.log(`[dstoolkit] Meilisearch enabled at ${env.meiliHost}`)
   } else {

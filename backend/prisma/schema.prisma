@@ -150,9 +150,62 @@ model User {
   skills           Skill[]
   mcpServers       McpServer[]
 
+  // 任务队列（断电续传）
+  tasks            Task[]
+  gitRepos         GitRepo[]
+
   @@index([role])
   @@index([tier])
   @@index([referralCode])
+}
+
+// ═══════════ 任务队列（持久化，支持断电续传） ═══════════
+// 流程任务：上传压缩包→解压→统计→拆分→推送 Git，全程状态 pending/processing/done/failed
+model Task {
+  id          Int       @id @default(autoincrement())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  type        String    // ZIP_UPLOAD / GIT_PUSH / EXPORT / SPLIT
+  status      String    @default("pending") // pending | processing | done | failed
+  progress    Int       @default(0)  // 0-100
+  total       Int       @default(0)
+  current     Int       @default(0)
+  message     String?   @db.Text
+  result      Json?
+  error       String?   @db.Text
+  payload     Json?     // 任务参数（断电后可据此续传）
+  gitRepo     GitRepo?  @relation(fields: [gitRepoId], references: [id], onDelete: SetNull)
+  gitRepoId   Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  startedAt   DateTime?
+  finishedAt  DateTime?
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([gitRepoId])
+}
+
+// ═══════════ Git 仓库（先建仓库后上传，拆分存储） ═══════════
+// 解耦：用户可先创建仓库，之后再上传对话记录；上传后对话按 turn 拆分存储
+model GitRepo {
+  id             Int      @id @default(autoincrement())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         Int
+  name           String   // 仓库名称
+  repoFsName     String   @unique // u<uid>_r<repoId>.git
+  description    String?  @db.Text
+  // 仓库状态：empty=已创建无内容，active=有对话，archived=归档
+  status         String   @default("empty")
+  conversationCount Int  @default(0)
+  lastPushAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  tasks          Task[]
+
+  @@index([userId])
+  @@index([status])
 }
 
 model DeepseekConfig {

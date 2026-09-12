@@ -49,6 +49,8 @@ export interface ParsedConversation {
   turns?: Turn[]
   turnCount?: number  // 云端 lite 模式下来自 DB 的轮次数（turns 为空时用于树标签）
   configId?: number  // 云端 lite 模式下用于按需加载 messages
+  /** 云端 DB 主键 id（用于导出/批量操作时定位；本地 IndexedDB 模式下为 string key） */
+  id?: number | string
 }
 
 export interface UploadResult {

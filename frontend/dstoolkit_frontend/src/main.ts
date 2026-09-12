@@ -2,6 +2,7 @@ import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import 'sweetalert2/dist/sweetalert2.min.css'
 import 'vue-element-plus-x/styles/index.css'
+import 'element-ai-vue/dist/index.css'
 import './styles/global.css'
 
 import { createApp } from 'vue'
@@ -9,6 +10,7 @@ import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import ElementAIVue from 'element-ai-vue'
 import ECharts from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -46,6 +48,7 @@ app.use(ElementPlus, {
   locale: zhCn,
   size: 'default',
 })
+app.use(ElementAIVue)
 // 全局注册 Element Plus 图标（模板里直接 <User /> 等使用）
 for (const [key, comp] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, comp as any)
