@@ -13,6 +13,9 @@ export interface UnifiedImportConversation {
   title: string
   messages: UnifiedImportMessage[]
   sourceUrl?: string
+  /** 原平台会话时间戳（可选；DeepSeek 导出包回退解析时填充，用于保留真实会话时间） */
+  insertedAt?: string
+  updatedAt?: string
 }
 
 // ═══════════ 分享链接平台识别 ═══════════

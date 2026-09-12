@@ -79,9 +79,11 @@ export const useTaskQueueStore = defineStore('taskQueue', {
       if (!auth.isLoggedIn) return
       try {
         const res = (await request.get('/git-repos/tasks/active-count')) as { count: number }
+        const prevCount = this.activeCount
         this.activeCount = res.count
-        // 有活跃任务时顺带刷新列表
-        if (res.count > 0) {
+        // 有活跃任务、或轮询到任务刚结束（1→0）时顺带刷新列表；
+        // 否则最后一个任务完成后列表停留在旧快照（页面一直显示“等待中”）
+        if (res.count > 0 || prevCount > 0) {
           this.refreshTasks()
         }
       } catch {

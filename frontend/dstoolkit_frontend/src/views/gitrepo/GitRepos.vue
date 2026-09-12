@@ -7,7 +7,7 @@
  * 任务进入持久化队列（断电可续传），通过右上角小红点通知栏查看进度。
  * 同步双写 Conversation 表，供 Explore/Stats/Export 下游复用。
  */
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type UploadRequestOptions } from 'element-plus'
 import { Plus, UploadFilled, Folder, Refresh, Document } from '@element-plus/icons-vue'
@@ -116,6 +116,14 @@ function formatDate(s: string | null): string {
   if (!s) return '—'
   return new Date(s).toLocaleString()
 }
+
+// 任务队列由活跃转为空闲时刷新列表（任务完成会更新仓库的对话数/最近推送）
+watch(
+  () => taskStore.activeCount,
+  (now, before) => {
+    if (before > 0 && now === 0) load()
+  },
+)
 
 onMounted(load)
 </script>

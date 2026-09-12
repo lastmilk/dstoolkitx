@@ -13,8 +13,11 @@ export async function ssePost(
   } = {},
 ): Promise<void> {
   const token = localStorage.getItem('dstoolkit_token')
+  // 本项目接口统一挂在 /api 前缀下（见 utils/request.ts 的 baseURL）。
+  // 本函数用裸 fetch，不经过 axios，需自行补前缀，否则请求会落到 SPA 静态兜底被 nginx 以 405 拒绝。
+  const fullUrl = /^https?:\/\//i.test(url) || url.startsWith('/api') ? url : `/api${url}`
   try {
-    const res = await fetch(url, {
+    const res = await fetch(fullUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

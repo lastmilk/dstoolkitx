@@ -1,4 +1,4 @@
-import { Config } from '@alicloud/openapi-core/dist/utils'
+import { Config } from '@alicloud/openapi-core/dist/utils.js'
 import DypnsapiModule from '@alicloud/dypnsapi20170525'
 import {
   SendSmsVerifyCodeRequest,
@@ -7,7 +7,7 @@ import {
   CheckSmsVerifyCodeResponse,
   GetMobileRequest,
   GetMobileResponse,
-} from '@alicloud/dypnsapi20170525/dist/models/model'
+} from '@alicloud/dypnsapi20170525/dist/models/model.js'
 import { env } from '../config/env.js'
 
 // 阿里云号码认证服务（dypnsapi）：

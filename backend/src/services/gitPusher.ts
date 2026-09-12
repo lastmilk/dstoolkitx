@@ -96,8 +96,19 @@ export async function pushSplitTree(opts: {
       // 有暂存差异，继续 commit
     }
 
+    // 服务进程（www）通常没有全局 git 身份配置，这里用 -c 显式提供提交者身份，
+    // 避免 "Committer identity unknown" 导致提交失败；--author 仍记录为上传用户。
     await git(
-      ['commit', '-m', commitMessage, `--author=${gitUsername} <${gitUsername}@git.dstoolkit.local>`],
+      [
+        '-c',
+        `user.name=${gitUsername}`,
+        '-c',
+        `user.email=${gitUsername}@git.dstoolkit.local`,
+        'commit',
+        '-m',
+        commitMessage,
+        `--author=${gitUsername} <${gitUsername}@git.dstoolkit.local>`,
+      ],
       { cwd: workDir },
     )
 

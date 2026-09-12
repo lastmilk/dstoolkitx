@@ -14,7 +14,11 @@
  *  - 可读性：仓库内可按目录浏览对话
  */
 import AdmZip from 'adm-zip'
-import { parseUnifiedMessageJson, type UnifiedImportConversation } from './importService.js'
+import {
+  parseUnifiedMessageJson,
+  type UnifiedImportConversation,
+  type UnifiedImportMessage,
+} from './importService.js'
 import { aggregateTurnsFromMessages } from './turns.js'
 import type { ParsedConversation, ParsedMessage } from './deepseekParser.js'
 
@@ -70,10 +74,119 @@ export function extractConversationsFromZip(zipBuffer: Buffer): {
   }
 
   // 复用 importService 的统一解析（支持单段/多段/conversations 包装）
-  const parsed = parseUnifiedMessageJson(data, 'DEEPSEEK_JSON')
+  let parsed = parseUnifiedMessageJson(data, 'DEEPSEEK_JSON')
+
+  // 回退：DeepSeek 官方导出包使用 mapping 树格式（无 messages 数组），统一解析器无法识别
+  if (parsed.length === 0) {
+    parsed = parseDeepseekMappingJson(data)
+  }
+
+  if (parsed.length === 0) {
+    throw new Error(`未能从 ${fileName} 中解析出任何对话（格式不支持或内容为空）`)
+  }
+
   const conversations = parsed.map((c, i) => splitConversation(c, i))
 
   return { conversations, fileName }
+}
+
+/** 原平台时间戳规整为 ISO 字符串；缺失或非法时回落当前时间 */
+function toIsoOrNow(v?: string): string {
+  if (v) {
+    const d = new Date(v)
+    if (!Number.isNaN(d.getTime())) return d.toISOString()
+  }
+  return new Date().toISOString()
+}
+
+/**
+ * 解析 DeepSeek 官方导出包的 mapping 树格式。
+ *
+ * 结构：顶层数组（或 {conversations: []} 包装），每项含 id/title/inserted_at/updated_at/mapping；
+ * mapping 为节点字典，节点含 parent/children/message.fragments，
+ * fragments[].type 取值 REQUEST（用户）/ RESPONSE（助手）/ SEARCH、THINK、FILE 等（附加片段）。
+ * 从根节点（parent === null）按 children 前序遍历，重建有序消息列表。
+ */
+export function parseDeepseekMappingJson(data: unknown): UnifiedImportConversation[] {
+  const wrapped = data && typeof data === 'object' ? (data as any) : null
+  const items: any[] = Array.isArray(data)
+    ? data
+    : Array.isArray(wrapped?.conversations)
+      ? wrapped!.conversations
+      : wrapped?.mapping
+        ? [wrapped]
+        : []
+
+  const out: UnifiedImportConversation[] = []
+
+  /** 提取节点文本：字符串原样；null/undefined 视为空；其他类型 JSON 序列化。多片段以空行拼接 */
+  const extractNodeText = (node: any): string => {
+    const frags: any[] = Array.isArray(node?.message?.fragments) ? node.message.fragments : []
+    const parts: string[] = []
+    for (const f of frags) {
+      const raw = f?.content
+      let text: string
+      if (typeof raw === 'string') text = raw
+      else if (raw === null || raw === undefined) text = ''
+      else text = JSON.stringify(raw)
+      if (text.trim()) parts.push(text)
+    }
+    return parts.join('\n\n')
+  }
+
+  for (const item of items) {
+    if (!item || typeof item !== 'object' || !item.mapping || typeof item.mapping !== 'object') continue
+
+    const nodes = Object.values(item.mapping) as any[]
+    // 根节点：parent === null；兜底取未被任何节点引用为 child 的节点
+    let root = nodes.find((n) => n && n.parent === null && n.message) || nodes.find((n) => n && n.parent === null)
+    if (!root) {
+      const childIds = new Set<string>()
+      for (const n of nodes) {
+        for (const c of (n && n.children) || []) childIds.add(String(c))
+      }
+      root =
+        nodes.find((n) => n && !childIds.has(String(n.id)) && n.message) ||
+        nodes.find((n) => n && !childIds.has(String(n.id)))
+    }
+    if (!root) continue
+
+    const messages: UnifiedImportMessage[] = []
+    const visited = new Set<string>()
+
+    // 前序遍历（visited 防御重复引用/环）
+    const walk = (node: any) => {
+      if (!node || typeof node !== 'object') return
+      const id = String(node.id ?? '')
+      if (id && visited.has(id)) return
+      if (id) visited.add(id)
+
+      const content = extractNodeText(node)
+      if (content) {
+        const frags: any[] = Array.isArray(node?.message?.fragments) ? node.message.fragments : []
+        const isAssistant = frags.some((f) => f?.type === 'RESPONSE')
+        messages.push({ role: isAssistant ? 'ASSISTANT' : 'USER', content })
+      }
+
+      for (const childId of (node.children as any[]) || []) {
+        walk(item.mapping[String(childId)])
+      }
+    }
+
+    walk(root)
+
+    if (messages.length === 0) continue
+
+    out.push({
+      sourceConvId: item.id !== undefined && item.id !== null ? String(item.id) : undefined,
+      title: typeof item.title === 'string' && item.title.trim() ? item.title : `对话 ${out.length + 1}`,
+      messages,
+      insertedAt: typeof item.inserted_at === 'string' ? item.inserted_at : undefined,
+      updatedAt: typeof item.updated_at === 'string' ? item.updated_at : undefined,
+    })
+  }
+
+  return out
 }
 
 /**
@@ -124,8 +237,8 @@ export function splitConversation(c: UnifiedImportConversation, idx: number): Sp
   return {
     convId: c.sourceConvId || `conv_${idx + 1}`,
     title: c.title || `对话 ${idx + 1}`,
-    insertedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    insertedAt: toIsoOrNow(c.insertedAt),
+    updatedAt: toIsoOrNow(c.updatedAt),
     turnCount: turns.length,
     turns,
   }

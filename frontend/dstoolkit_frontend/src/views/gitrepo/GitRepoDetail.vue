@@ -3,7 +3,7 @@
  * GitRepoDetail.vue
  * 仓库详情：展示仓库元信息 + 拆分存储后的对话列表 + 该仓库相关的任务进度。
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Folder, Refresh, ChatDotRound } from '@element-plus/icons-vue'
@@ -45,6 +45,16 @@ async function load(): Promise<void> {
 const repoTasks = computed<TaskRecord[]>(() =>
   taskStore.sortedTasks.filter((t) => t.gitRepoId === repoId.value),
 )
+
+/** 本仓库是否有进行中的任务（等待中/执行中） */
+const repoHasActiveTask = computed(() =>
+  repoTasks.value.some((t) => t.status === 'pending' || t.status === 'processing'),
+)
+
+// 任务从进行中变为结束时重新拉取仓库元信息（对话数/最近推送等），避免页面停留在旧数据
+watch(repoHasActiveTask, (now, before) => {
+  if (before && !now) load()
+})
 
 function formatDate(s: string | null): string {
   if (!s) return '—'
