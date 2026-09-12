@@ -6,9 +6,12 @@
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import TaskNotification from '@/components/TaskNotification.vue'
 
 const router = useRouter()
 const route = useRoute()
+const auth = useAuthStore()
 
 const drawerVisible = ref(false)
 const isMobile = ref(false)
@@ -55,6 +58,8 @@ onUnmounted(() => {
       <div class="navbar-brand" @click="navigate('/portal')">
         <el-icon :size="22" class="brand-icon"><MagicStick /></el-icon>
         <span class="brand-name">Deepseek Toolkit</span>
+        <!-- 任务队列通知小红点（仅登录用户显示，紧邻品牌右侧） -->
+        <TaskNotification v-if="auth.isLoggedIn" class="brand-task-notif" @click.stop />
       </div>
 
       <nav v-if="!isMobile" class="navbar-links">
@@ -151,6 +156,9 @@ onUnmounted(() => {
   font-size: 16px;
   font-weight: 700;
   color: var(--el-text-color-primary);
+}
+.brand-task-notif {
+  margin-left: 6px;
 }
 
 .navbar-links {

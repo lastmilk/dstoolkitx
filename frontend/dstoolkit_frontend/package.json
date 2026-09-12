@@ -17,6 +17,7 @@
     "axios": "^1.19.0",
     "dayjs": "^1.11.23",
     "echarts": "^6.1.0",
+    "element-ai-vue": "^0.1.7",
     "element-plus": "^2.8.8",
     "flexsearch": "^0.8.212",
     "highlight.js": "^11.12.0",

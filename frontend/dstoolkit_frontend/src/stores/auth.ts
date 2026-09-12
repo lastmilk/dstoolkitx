@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { request } from '@/utils/request'
 import { clearCloudSearchCache } from '@/utils/db'
 import type { GeetestParams } from '@/utils/geetest'
+import { useTaskQueueStore } from '@/stores/taskQueue'
 
 const TOKEN_KEY = 'dstoolkit_token'
 
@@ -44,6 +45,8 @@ export const useAuthStore = defineStore('auth', {
     applyAuth(res: { token: string; user: User }) {
       this.setToken(res.token)
       this.user = res.user
+      // 登录/注册后启动任务队列轮询（驱动右上角小红点）
+      useTaskQueueStore().startPolling()
     },
     async login(username: string, password: string, captcha?: GeetestParams) {
       const res: any = await request.post('/auth/login', { username, password, captcha })
@@ -77,6 +80,8 @@ export const useAuthStore = defineStore('auth', {
     async fetchMe() {
       const res: any = await request.get('/auth/me')
       this.user = res.user
+      // 页面刷新后 token 已存在但 store 未启动轮询，这里补启
+      useTaskQueueStore().startPolling()
       return res.user as User
     },
     async updateProfile(username: string) {
@@ -92,6 +97,8 @@ export const useAuthStore = defineStore('auth', {
       return res.cloudSyncEnabled as boolean
     },
     logout() {
+      // 登出时停止任务队列轮询
+      useTaskQueueStore().stopPolling()
       this.token = ''
       this.user = null
       localStorage.removeItem(TOKEN_KEY)
