@@ -78,8 +78,10 @@ class MainActivity : FlutterActivity() {
                 }
             }
             .addOnFailureListener { error ->
-                result.error("GEETEST_ERROR", error?.message ?: "验证加载失败", null)
+                result.error("GEETEST_ERROR", error ?: "验证加载失败", null)
             }
+            // init 只做准备，必须调用 verifyWithCaptcha() 才会真正弹出验证页
+            .verifyWithCaptcha()
     }
 
     /** 阿里云一键登录：拉起运营商授权页，成功返回 accessToken（getMobile 用） */

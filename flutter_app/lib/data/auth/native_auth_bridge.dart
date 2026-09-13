@@ -15,14 +15,16 @@ class NativeAuthBridge {
   /// 当前平台是否支持原生桥（仅 Android 集成了 aar）
   bool get isSupported => Platform.isAndroid;
 
-  /// 弹出极验验证，成功返回二次校验四参数；失败/取消抛 PlatformException
+  /// 弹出极验验证，成功返回二次校验五参数（含 captcha_id）；失败/取消抛 PlatformException
   Future<Map<String, String>> geetestVerify({String? captchaId}) async {
     if (!isSupported) throw UnsupportedError('当前平台不支持原生极验');
+    final id = captchaId ?? geetestAppCaptchaId;
     final res = await _channel
-        .invokeMethod<Map<dynamic, dynamic>>('geetestVerify', {
-      'captchaId': captchaId ?? geetestAppCaptchaId,
-    });
-    return res?.map((k, v) => MapEntry(k as String, v as String)) ?? {};
+        .invokeMethod<Map<dynamic, dynamic>>('geetestVerify', {'captchaId': id});
+    final payload =
+        res?.map((k, v) => MapEntry(k as String, v as String)) ?? {};
+    // 后端 requireCaptcha schema 强制要求 captcha_id，与四参数一起提交
+    return {'captcha_id': id, ...payload};
   }
 
   /// 一键登录环境是否可用（SIM 卡 + 运营商支持 + 控制台配置就绪）

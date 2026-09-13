@@ -120,6 +120,30 @@ class V1Api {
 
   // ═══════════ AI 知识库扩展 ═══════════
 
+  /// POST /configs/upload — 上传本地 DeepSeek 导出 zip，云端新建容器并入库
+  /// 返回 { persisted, config?, conversationCount, ... }
+  Future<Map<String, dynamic>> uploadConfigZip({
+    required String filePath,
+    required String name,
+    void Function(int sent, int total)? onSendProgress,
+  }) async {
+    final form = FormData.fromMap({
+      'name': name,
+      'file': await MultipartFile.fromFile(filePath),
+    });
+    final res = await dio.post(
+      '/configs/upload',
+      data: form,
+      onSendProgress: onSendProgress,
+      // 大文件上传 + 服务端流式解析，放宽超时
+      options: Options(
+        sendTimeout: const Duration(minutes: 10),
+        receiveTimeout: const Duration(minutes: 10),
+      ),
+    );
+    return res.data as Map<String, dynamic>;
+  }
+
   /// POST /import/share — 通过分享链接增量导入
   Future<Map<String, dynamic>> importByShare(String url) async {
     final res = await dio.post('/import/share', data: {'url': url});

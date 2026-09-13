@@ -30,6 +30,9 @@ dependencies:
   # 工具
   intl: ^0.19.0
   crypto: ^3.0.6
+  # 本地文件选择（导入 DeepSeek 导出包）
+  # 10.x 编译于 android-36，兼容 flutter_plugin_android_lifecycle 的 minCompileSdk=36
+  file_picker: ^10.0.0
   # Git 生态（对话增量同步仓库目录定位）
   path_provider: ^2.1.5
   git2dart: ^0.5.5

@@ -1,12 +1,22 @@
 import { Router } from 'express'
+import multer from 'multer'
 import { prisma } from '../utils/prisma.js'
 import { asyncHandler } from '../utils/async.js'
 import { verifyApiToken, type AuthedRequest } from '../middleware/auth.js'
 import { parsePaging, pageResponse } from '../utils/paging.js'
 import { aggregateTurnsFromMessages } from '../services/turns.js'
+import { extractZipEntries, buildDeepseekUser, streamConversationsBuffer } from '../services/deepseekParser.js'
+import { streamUploadToCloud } from '../services/conversationStore.js'
+import { needsPhoneForCloud, phoneRequiredResponse } from '../utils/cloudgate.js'
 
 const router = Router()
 router.use(verifyApiToken)
+
+// 移动端本地上传（内存存储，与 config.routes 上限一致：200MB）
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 200 * 1024 * 1024 },
+})
 
 function publicConfig(c: any) {
   return {
@@ -38,6 +48,52 @@ router.get('/configs', asyncHandler(async (req: AuthedRequest, res) => {
     orderBy: { updatedAt: 'desc' },
   })
   return res.json({ configs: configs.map(publicConfig) })
+}))
+
+// POST /api/v1/configs/upload  multipart: file(zip) + name
+// 移动端本地上传 DeepSeek 导出数据包（App 持 dstk_ 令牌，无 JWT，故不与 /api/configs 复用路由）
+// 逻辑与 POST /api/configs 云端分支一致：手机号闸门 → 解析 zip → 建容器 → 分块入库
+router.post('/configs/upload', upload.single('file'), asyncHandler(async (req: AuthedRequest, res) => {
+  if (!req.file) return res.status(400).json({ error: '请上传 DeepSeek 导出的 zip 压缩包' })
+  const name = String(req.body.name || '').trim()
+  if (!name) return res.status(400).json({ error: '请填写容器名称' })
+
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: req.user!.id } })
+  // 云端闸门：新传统注册用户未绑手机号时禁止云端落库
+  if (needsPhoneForCloud(user)) return phoneRequiredResponse(res)
+
+  const { userJson, conversationsBuffer } = extractZipEntries(req.file.buffer)
+  const deepseekUser = buildDeepseekUser(userJson)
+
+  if (!user.cloudSyncEnabled) {
+    // 未开启云端同步：只解析计数，不入库（App 无 IndexedDB 本地模式，如实告知）
+    let count = 0
+    await streamConversationsBuffer(conversationsBuffer, async () => { count++ })
+    return res.json({ persisted: false, conversationCount: count, deepseekUser })
+  }
+
+  // 同账号可建多容器：导入一律新建
+  const created = await prisma.deepseekConfig.create({
+    data: {
+      userId: user.id,
+      name,
+      deepseekUserId: deepseekUser.userId,
+      deepseekEmail: deepseekUser.email,
+      deepseekMobile: deepseekUser.mobile,
+    },
+  })
+  const conversationCount = await streamUploadToCloud(req.user!.id, created.id, conversationsBuffer)
+
+  const fresh = await prisma.deepseekConfig.findUniqueOrThrow({
+    where: { id: created.id },
+    include: { _count: { select: { conversations: true } } },
+  })
+  return res.json({
+    persisted: true,
+    config: publicConfig(fresh),
+    deepseekUser,
+    conversationCount,
+  })
 }))
 
 // GET /api/v1/configs/:id/conversations  分页返回会话元数据（lite，无 messages）

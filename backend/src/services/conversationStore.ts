@@ -1,7 +1,43 @@
 import { prisma } from '../utils/prisma.js'
 import { indexDocuments, deleteDocuments, type MeiliDoc } from './meilisearch.js'
-import { processConversation as buildParsedFromMapping, type ParsedConversation } from './deepseekParser.js'
+import {
+  processConversation as buildParsedFromMapping,
+  streamConversationsBuffer,
+  type ParsedConversation,
+} from './deepseekParser.js'
 import { aggregateTurnsFromMessages } from './turns.js'
+
+// cloud=true 上传入库的分块大小（消除大 JSON 一次性写库的内存峰值）
+const UPLOAD_CHUNK_SIZE = 50
+
+/**
+ * cloud=true 增量写库：流式解析 conversationsBuffer → 分块 upsert。
+ * 返回 conversationCount（不回传全部会话，客户端按需分页加载）。
+ * config.routes 上传与 v1 移动端上传共用。
+ */
+export async function streamUploadToCloud(
+  userId: number,
+  configId: number,
+  conversationsBuffer: Buffer,
+): Promise<number> {
+  let batch: ParsedConversation[] = []
+  let count = 0
+  const flush = async () => {
+    if (batch.length === 0) return
+    const chunk = batch
+    batch = []
+    await upsertConversations(userId, configId, chunk)
+  }
+  await streamConversationsBuffer(conversationsBuffer, async (conv) => {
+    batch.push(conv)
+    count++
+    if (batch.length >= UPLOAD_CHUNK_SIZE) {
+      await flush()
+    }
+  })
+  await flush()
+  return count
+}
 
 // 由单个 ParsedConversation 构建该会话的 MeiliDoc[]：
 //  - 每条 message 一个文档，id = `msg:${convId}:${nodeId}`

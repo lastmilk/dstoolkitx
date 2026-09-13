@@ -11,16 +11,35 @@ class TokenStore {
   static const _kAccess = 'dstk_access_token';
   static const _kRefresh = 'dstk_refresh_token';
 
-  Future<String?> readAccess() => _storage.read(key: _kAccess);
-  Future<String?> readRefresh() => _storage.read(key: _kRefresh);
+  Future<String?> readAccess() => _safeRead(_kAccess);
+  Future<String?> readRefresh() => _safeRead(_kRefresh);
 
   Future<void> write({required String access, required String refresh}) async {
-    await _storage.write(key: _kAccess, value: access);
-    await _storage.write(key: _kRefresh, value: refresh);
+    try {
+      await _storage.write(key: _kAccess, value: access);
+      await _storage.write(key: _kRefresh, value: refresh);
+    } catch (_) {
+      // EncryptedSharedPreferences 偶发 KeyStore 异常：写失败不应崩溃
+    }
   }
 
   Future<void> clear() async {
-    await _storage.delete(key: _kAccess);
-    await _storage.delete(key: _kRefresh);
+    try {
+      await _storage.delete(key: _kAccess);
+      await _storage.delete(key: _kRefresh);
+    } catch (_) {/* 忽略 */}
+  }
+
+  /// 部分机型 Keystore 损坏导致读取抛 AEADBadTagException：
+  /// 视为无 token 并清掉坏数据，避免调用方卡死/崩溃
+  Future<String?> _safeRead(String key) async {
+    try {
+      return await _storage.read(key: key);
+    } catch (_) {
+      try {
+        await _storage.delete(key: key);
+      } catch (_) {}
+      return null;
+    }
   }
 }

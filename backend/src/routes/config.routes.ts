@@ -7,12 +7,10 @@ import { asyncHandler } from '../utils/async.js'
 import { verifyJwt, type AuthedRequest } from '../middleware/auth.js'
 import {
   parseDeepseekZip,
-  streamConversationsBuffer,
   extractZipEntries,
   buildDeepseekUser,
-  type ParsedConversation,
 } from '../services/deepseekParser.js'
-import { upsertConversations } from '../services/conversationStore.js'
+import { streamUploadToCloud } from '../services/conversationStore.js'
 import { parsePaging } from '../utils/paging.js'
 import { needsPhoneForCloud, phoneRequiredResponse } from '../utils/cloudgate.js'
 import { aggregateTurnsFromMessages } from '../services/turns.js'
@@ -44,35 +42,7 @@ function publicConfig(c: any) {
 // 流式上传：用 stream-json 增量解析 conversations.json，每解析完一个会话即
 // 提取 turns+扁平化，并按 CHUNK_SIZE 分块写库（cloud=true），避免大 JSON 一次性
 // JSON.parse 阻塞事件循环，同时降低单事务内存峰值。
-const UPLOAD_CHUNK_SIZE = 50
-
-/**
- * cloud=true 增量写库：流式解析 conversationsBuffer → 分块 upsert。
- * 返回 conversationCount（不回传全部会话，前端按需分页加载）。
- */
-async function streamUploadToCloud(
-  userId: number,
-  configId: number,
-  conversationsBuffer: Buffer,
-): Promise<number> {
-  let batch: ParsedConversation[] = []
-  let count = 0
-  const flush = async () => {
-    if (batch.length === 0) return
-    const chunk = batch
-    batch = []
-    await upsertConversations(userId, configId, chunk)
-  }
-  await streamConversationsBuffer(conversationsBuffer, async (conv) => {
-    batch.push(conv)
-    count++
-    if (batch.length >= UPLOAD_CHUNK_SIZE) {
-      await flush()
-    }
-  })
-  await flush()
-  return count
-}
+// 实现（streamUploadToCloud）位于 services/conversationStore.ts，与 v1 移动端上传共用。
 
 // POST /api/configs  multipart: file(zip) + name [+ mode=git]
 // mode=git（对话容器 Git 流程）：只解析 zip 并建/取容器壳，不写对话入库 ——

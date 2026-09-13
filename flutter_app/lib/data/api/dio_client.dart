@@ -33,8 +33,8 @@ Dio buildDio({
       final isTokenEndpoint = error.requestOptions.path.contains('/oauth/token');
       if (!is401 || isTokenEndpoint) return handler.reject(error);
 
-      // 尝试 refresh（加锁防并发刷新）
-      final refreshed = await _tryRefresh(tokenProvider, oauthApi);
+      // 尝试 refresh（并发 401 共享同一次刷新，刷新成功后各自重试）
+      final refreshed = await _ensureRefresh(tokenProvider, oauthApi);
       if (refreshed) {
         try {
           final retry = await dio.fetch(error.requestOptions);
@@ -52,9 +52,21 @@ Dio buildDio({
   return dio;
 }
 
-Future<bool> _tryRefresh(TokenProvider tokenProvider, OAuthApi oauthApi) async {
-  if (_refreshing) return false;
-  _refreshing = true;
+/// 单飞刷新：并发触发时共享同一个进行中的 Future，
+/// 避免「后到的 401 因锁被占直接 onAuthFailed」把用户误踢下线。
+Future<bool> _ensureRefresh(
+    TokenProvider tokenProvider, OAuthApi oauthApi) {
+  final inFlight = _refreshInFlight;
+  if (inFlight != null) return inFlight;
+  final task = _doRefresh(tokenProvider, oauthApi);
+  _refreshInFlight = task;
+  // 完成后清槽（无论成败，下一次 401 重新发起刷新）
+  task.whenComplete(() => _refreshInFlight = null);
+  return task;
+}
+
+Future<bool> _doRefresh(
+    TokenProvider tokenProvider, OAuthApi oauthApi) async {
   try {
     final refresh = await tokenProvider.readRefresh();
     if (refresh == null) return false;
@@ -69,12 +81,10 @@ Future<bool> _tryRefresh(TokenProvider tokenProvider, OAuthApi oauthApi) async {
     return true;
   } catch (_) {
     return false;
-  } finally {
-    _refreshing = false;
   }
 }
 
-bool _refreshing = false;
+Future<bool>? _refreshInFlight;
 
 /// 裸 Dio（用于 /oauth/token、/oauth/revoke —— 无鉴权拦截）
 Dio buildBareDio() => Dio(BaseOptions(

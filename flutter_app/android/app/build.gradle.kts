@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "cn.dstoolkit.dstoolkit_app"
-    compileSdk = flutter.compileSdkVersion
+    // geetest_captcha_android_v1.8.14 aar requires minCompileSdk 37
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -34,11 +35,14 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            proguardFiles("proguard-rules.pro")
         }
     }
 }
 
 dependencies {
+    // 号码认证 aar 的 style 继承 Theme.AppCompat.*，需显式引入 appcompat
+    implementation("androidx.appcompat:appcompat:1.7.1")
     // 极验 GT4 行为验证
     implementation(files("libs/geetest_captcha_android_v1.8.14_20260804.aar"))
     // 阿里云号码认证（一键登录）：核心 SDK + main + logger 三个 aar 缺一不可

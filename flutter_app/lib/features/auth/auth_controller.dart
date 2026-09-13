@@ -83,10 +83,18 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       final user = await _api.me();
       state = AuthState(status: AuthStatus.loggedIn, user: user);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        // 拦截器已尽力刷新仍 401 → 会话真失效，登出
+        await _store.clear();
+        state = state.copyWith(status: AuthStatus.loggedOut, user: null);
+      } else {
+        // 网络抖动 / 超时 / 5xx 等瞬时错误：保留 token，按已登录进入（user 稍后补拉）
+        state = const AuthState(status: AuthStatus.loggedIn);
+      }
     } catch (_) {
-      // token 无效且刷新失败（拦截器已尽力）→ 登出
-      await _store.clear();
-      state = state.copyWith(status: AuthStatus.loggedOut);
+      // 非预期异常（如存储异常）：同样不清 token，避免误杀会话
+      state = const AuthState(status: AuthStatus.loggedIn);
     }
   }
 
